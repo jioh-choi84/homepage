@@ -316,11 +316,13 @@ export interface StatsData {
 
 // Exhibition page types
 export type ExhibitionType =
-  | 'solo' | 'group' | 'popup'
+  | 'solo' | 'duo' | 'trio' | 'group' | 'popup'
   | 'curated' | 'invitational' | 'artfair' | 'biennale' | 'competition';
 
 export const EXHIBITION_TYPE_OPTIONS: { value: ExhibitionType; ko: string; en: string }[] = [
   { value: 'solo', ko: '개인전', en: 'Solo Exhibition' },
+  { value: 'duo', ko: '2인전', en: 'Two-person Exhibition' },
+  { value: 'trio', ko: '3인전', en: 'Three-person Exhibition' },
   { value: 'group', ko: '그룹전', en: 'Group Exhibition' },
   { value: 'popup', ko: '팝업전', en: 'Pop-up Exhibition' },
   { value: 'curated', ko: '기획전', en: 'Curated Exhibition' },

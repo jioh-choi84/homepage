@@ -1,7 +1,8 @@
 /**
  * 네오룩 전시 일괄 등록 (일회성 마이그레이션)
  *
- * - 개인전 29 + 추니박 단체전 7 = 36건(기존 중복 URL은 스킵)
+ * - 네오룩 '지오최' 검색 결과 18건(개인전+참여 단체전, 기존 중복 URL은 스킵)
+ * - 개인전/단체전 구분(type)은 og:description의 작가 표기로 자동 판별
  * - 대표 이미지(og:image)만 Cloudinary 재호스팅, 본문 이미지는 네오룩 링크 유지
  * - exhibitions.json 만 read→append→write (다른 컬렉션은 절대 건드리지 않음)
  *
@@ -37,14 +38,12 @@ cloudinary.config({
 const BLOB_BASE = process.env.NEXT_PUBLIC_BLOB_BASE;
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 
-// ---- 대상 목록 (네오룩 archive id, type) ----
-const SOLO_CHUNI = ['20260507a','20241011g','20240529f','20230411a','20221031e','20220503f','20211112d','20210604i','20201012j','20190909f','20190605g'];
-const SOLO_PARK = ['20220304f','20210602i','20150508a','20150110a','20140328f','20131109d','20131103a','20111110d','20110620a','20101102h','20091112f','20081029g','20071013e','20061026e','20051109e','20040922a','20030312a','20000921a'];
-const GROUP_CHUNI = ['20260529b','20260116a','20251129b','20240713b','20230611c','20211104i','20210728f'];
+// ---- 대상 목록 (네오룩 '지오최' 검색 결과 18건) ----
+// type(solo/group)은 parse()에서 og:description의 작가 표기로 자동 판별
 const TARGETS = [
-  ...SOLO_CHUNI.map((id) => ({ id, type: 'solo' })),
-  ...SOLO_PARK.map((id) => ({ id, type: 'solo' })),
-  ...GROUP_CHUNI.map((id) => ({ id, type: 'group' })),
+  '20080621a','20091002g','20111008g','20150618f','20160706f','20171013j',
+  '20180427d','20190918g','20200920f','20220706f','20221128b','20230721f',
+  '20240313a','20250620c','20251129b','20260116a','20260529b','20260603b',
 ];
 
 // ---- 파싱 유틸 (단일 import 라우트와 동일 규칙) ----
@@ -89,11 +88,14 @@ async function rehostLead(absUrl) {
   return null;
 }
 
-function parse(html, archiveId, type) {
+function parse(html, archiveId) {
   const warnings = [];
   const canonical = meta(html, 'og:url') || `https://neolook.com/archives/${archiveId}`;
   const title = meta(html, 'og:title') || '';
   const ogImage = meta(html, 'og:image') || '';
+  const ogDesc = meta(html, 'og:description') || '';
+  // 개인전: og 설명에 작가 표기(지오최/최현주/JIOH CHOI)가 있으면 solo, 없으면 group(참여전)
+  const type = /지오최|최현주|JIOH CHOI/i.test(ogDesc) ? 'solo' : 'group';
   const docStart = html.indexOf('<div class="document');
   const docBody = docStart >= 0 ? html.slice(docStart) : html;
   const headerMatch = docBody.match(/<div style="text-align:\s*center;?">([\s\S]*?)<\/div>/i);
@@ -147,13 +149,13 @@ async function main() {
   console.log(`기존 전시 ${existing.length}건. 중복 URL은 스킵합니다.\n`);
 
   const toAdd = [];
-  for (const { id, type } of TARGETS) {
+  for (const id of TARGETS) {
     const url = `https://neolook.com/archives/${id}`;
     const norm = url.replace(/^https?:\/\/www\./,'https://');
     if (existingUrls.has(norm)) { console.log(`· ${id} 스킵(이미 등록됨)`); continue; }
     try {
       const html = await fetchPage(url);
-      const d = parse(html, id, type);
+      const d = parse(html, id);
       let image_url = '';
       if (!COMMIT) {
         image_url = d.ogImage; // dry-run: 업로드 생략
@@ -169,7 +171,7 @@ async function main() {
         city: d.city, city_en: d.city_en,
       };
       toAdd.push(exh);
-      console.log(`✓ ${id} [${type}] ${d.year} | ${d.title} | ${d.venue}${d.venue_en?' / '+d.venue_en:''} | ${d.location}${d.warnings.length?'  ⚠ '+d.warnings.join(', '):''}`);
+      console.log(`✓ ${id} [${d.type}] ${d.year} | ${d.title} | ${d.venue}${d.venue_en?' / '+d.venue_en:''} | ${d.location}${d.warnings.length?'  ⚠ '+d.warnings.join(', '):''}`);
     } catch (e) {
       console.log(`✗ ${id} 실패: ${e.message}`);
     }
