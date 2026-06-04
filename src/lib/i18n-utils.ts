@@ -1,6 +1,14 @@
 import type { Locale } from '@/i18n';
 
 /**
+ * 접속 국가 코드(Vercel x-vercel-ip-country)로 초기 언어를 결정
+ * 한국(KR) 또는 감지 불가(null/빈값)는 한국어, 그 외 해외는 영어
+ */
+export function localeFromCountry(country: string | null): Locale {
+  return !country || country === 'KR' ? 'ko' : 'en';
+}
+
+/**
  * 현재 언어에 따라 영문 또는 한글 값을 반환
  * 영문 값이 없으면 한글 값으로 폴백
  */

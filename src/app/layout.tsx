@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Cormorant_Garamond, Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import "./globals.css";
 // CKEditor 콘텐츠 스타일 — 공개 페이지(.ck-content)가 편집기와 동일하게 보이도록
 import "ckeditor5/ckeditor5-content.css";
 import { SidePanelProvider } from "@/contexts/SidePanelContext";
 import { LocaleProvider } from "@/i18n";
+import { localeFromCountry } from "@/lib/i18n-utils";
 import Footer from "@/components/common/Footer";
 import TopNav from "@/components/common/TopNav";
 import PageViewTracker from "@/components/common/PageViewTracker";
@@ -42,17 +44,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Vercel이 주입하는 접속 국가 헤더로 초기 언어를 서버에서 결정
+  // 한국(KR)·감지불가 → 한국어, 그 외 해외 → 영어
+  const country = (await headers()).get("x-vercel-ip-country");
+  const initialLocale = localeFromCountry(country);
+
   return (
-    <html lang="ko">
+    <html lang={initialLocale}>
       <body
         className={`${cormorant.variable} ${notoSansKr.variable} ${notoSerifKr.variable} antialiased`}
       >
-        <LocaleProvider>
+        <LocaleProvider initialLocale={initialLocale}>
           <SidePanelProvider>
             <PageViewTracker />
             <NoticePopup />

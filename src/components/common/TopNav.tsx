@@ -17,20 +17,30 @@ export default function TopNav() {
     <>
       <header className="fixed top-0 left-0 right-0 z-40 bg-[var(--background)]/90 backdrop-blur-sm border-b border-[var(--border)]">
         <div className="max-w-6xl mx-auto px-6 h-[84px] flex items-center justify-between gap-4">
-          {/* Brand (좌측) — 손글씨 서명 한 장(배경 투명 PNG).
-              마우스 오버 시 살짝 확대 + 약간 진하게(미세 인터랙션). */}
+          {/* Brand (좌측) — 손글씨 서명(배경 투명 PNG).
+              마우스 오버 시 평소(청록·보라) ↔ 호버(초록·보라) 색상 크로스페이드. */}
           <Link
             href="/"
             aria-label={t.common.logo}
-            className="group relative inline-block shrink-0 ml-[38px]"
+            className="group relative inline-block shrink-0"
           >
+            {/* 평소 로고 */}
             <Image
               src="/jioh-choi-logo.png"
               alt={t.common.logo}
               width={3545}
               height={850}
               priority
-              className="h-[65px] w-auto origin-left opacity-90 transition-all duration-300 ease-out group-hover:scale-[1.04] group-hover:opacity-100"
+              className="h-[52px] w-auto opacity-90 transition-opacity duration-300 ease-out group-hover:opacity-0"
+            />
+            {/* 호버 로고 (겹쳐서 색상만 전환) */}
+            <Image
+              src="/jioh-choi-logo-hover.png"
+              alt=""
+              aria-hidden
+              width={3545}
+              height={850}
+              className="absolute inset-0 h-[52px] w-auto opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
             />
           </Link>
 
