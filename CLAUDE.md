@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> ## ⚠️ 디렉토리/프로젝트 구분 — 절대 혼동 금지 (깊게 기억할 것)
+>
+> 이 저장소는 **지오 최(Jioh Choi) 작가 홈페이지**이며, **추니박(chuni_park) 프로젝트를 그대로 복제**해 만든 베이스다.
+> 비슷한 이름의 디렉토리/프로젝트가 여럿 있어 혼동하기 쉽다. 반드시 구분하라:
+>
+> | 경로/이름 | 정체 | 상태 |
+> |---|---|---|
+> | `/git/jioh_choi` (언더스코어 O) | **현재 이 프로젝트.** 지오 최 홈페이지 (chuni_park 복제본) | **작업 대상** |
+> | `/git/jiohchoi` (언더스코어 X) | 이전에 만들던 옛 지오 최 프로젝트 | **2026-06-04 삭제됨. 부활/참조 금지** |
+> | `/git/chuni_park` | 복제 원본(추니박 포트폴리오) | 별개 프로젝트. 건드리지 말 것 |
+>
+> **인프라(현재 jioh_choi가 사용):** GitHub `jioh-choi84/homepage`, Vercel 프로젝트 `homepage`(team jioh-choi84s-projects, 도메인 www.jiohchoi.com), Cloudinary `dw2gl9cnx`, Vercel Blob `1emnts5a5zzhky2p`. 모든 자격증명은 누나 계정(jioh-choi84 / chj6859@gmail.com) 소유.
+> **chuni 인프라(절대 사용 금지):** Cloudinary `dqtx4qzgj`, Blob `cacqlea3b4exg53h`, 도메인 `chuniart.com`. 코드에 이 식별자가 하드코딩으로 새어들면 버그다.
+>
+> **환경변수 주의:** 코드(`src/lib/data.ts`)는 `NEXT_PUBLIC_BLOB_BASE`를 읽는다(끝에 `/data`는 코드가 자동 부착). 옛 `BLOB_BASE_URL` 키와 혼동 금지.
+> **아래 문서 본문은 복제 원본(chuni_park) 기준 서술이 다수 남아 있다.** "Chuni Park", "chuniart.com" 등 표시 텍스트는 복제 시 의도적으로 그대로 둔 것이며, 추후 "최소 수정" 단계에서 지오 최 콘텐츠로 교체 예정이다.
+
 ## Project Overview
 
 Artist portfolio website for Chuni Park (화가 추니박) — a full-stack Next.js application with bilingual support (Korean/English) and an admin CMS. Images are stored on Cloudinary; structured content (artworks, exhibitions, resources, press, about, etc.) is stored as JSON on Vercel Blob. Live at **https://www.chuniart.com**, deployed on Vercel.
