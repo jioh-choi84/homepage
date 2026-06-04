@@ -1,0 +1,19 @@
+{
+  "id": "about",
+  "artist_name": "",
+  "artist_name_en": "",
+  "bio_paragraphs": [],
+  "bio_paragraphs_en": [],
+  "footer_bio": "",
+  "footer_bio_en": "",
+  "contact_email": "",
+  "contact_phone": "",
+  "phone_visible": false,
+  "studio_address": "",
+  "studio_address_en": "",
+  "contact_note": "",
+  "contact_note_en": "",
+  "social_links": [],
+  "profile_image_url": null,
+  "updated_at": null
+}

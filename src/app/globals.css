@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F5F5F5;
+  --surface: #FFFFFF;
+  --foreground: #1a1a1a;
+  --text-secondary: #666666;
+  --border: #E0E0E0;
+  --accent: #333333;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-text-secondary: var(--text-secondary);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-noto-sans);
+  --font-serif: var(--font-cormorant);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-noto-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus styles for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Animation keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-8px) translateX(4px);
+  }
+  50% {
+    transform: translateY(-4px) translateX(-4px);
+  }
+  75% {
+    transform: translateY(-12px) translateX(2px);
+  }
+}
+
+@keyframes wobble {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.02) rotate(1deg);
+  }
+  50% {
+    transform: scale(0.98) rotate(-1deg);
+  }
+  75% {
+    transform: scale(1.01) rotate(0.5deg);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+.animate-bounce-slow {
+  animation: bounce 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-wobble {
+  animation: wobble 3s ease-in-out infinite;
+}
+
+/* Slide transition animations for artwork swipe */
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInFromLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInFromLeft 0.3s ease-out;
+}
+
+/* 팝업 공지 등장 — 살짝 떠오르며 확대(입체감) */
+@keyframes noticePop {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-notice-pop { animation: noticePop 0.24s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* CKEditor 편집 영역 — 글쓰기 영역임이 드러나도록 충분한 높이 확보 */
+.ck-wrap .ck-editor__editable { min-height: 360px; }
+.ck-wrap .ck-editor__editable_inline { padding: 1rem 1.25rem; }
+
+/* 리치 콘텐츠(CKEditor 에디터 + 공개 Resources/Exhibition 본문) */
+.rich-content { line-height: 1.7; }
+.rich-content p { margin: 0.6em 0; }
+.rich-content h2 { font-size: 1.4rem; font-weight: 600; margin: 1em 0 0.4em; }
+.rich-content ul { list-style: disc; padding-left: 1.4em; margin: 0.6em 0; }
+.rich-content ol { list-style: decimal; padding-left: 1.4em; margin: 0.6em 0; }
+.rich-content strong { font-weight: 700; }
+.rich-content em { font-style: italic; }
+.rich-content a { text-decoration: underline; }
+.rich-content img { max-width: 100%; height: auto; border-radius: 2px; margin: 0.6em 0; }
+.rich-content img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
+.rich-content img[data-align="left"] { float: left; margin: 0.3em 1.2em 0.6em 0; }
+.rich-content img[data-align="right"] { float: right; margin: 0.3em 0 0.6em 1.2em; }
+.rich-content::after { content: ""; display: block; clear: both; }
+.rich-content iframe { max-width: 100%; border: 0; }
+
+/* CKEditor 출력(공개 본문) — figure.image / 정렬 / 리사이즈 / 미디어 */
+.rich-content figure { margin: 1em 0; }
+.rich-content figure.image { display: table; }
+.rich-content figure.image img { max-width: 100%; height: auto; display: block; }
+.rich-content figure.image figcaption { font-size: 0.85em; color: var(--text-secondary); padding-top: 0.4em; text-align: center; }
+.rich-content .image-style-align-left { float: left; margin: 0.3em 1.4em 0.8em 0; max-width: 50%; }
+.rich-content .image-style-align-right { float: right; margin: 0.3em 0 0.8em 1.4em; max-width: 50%; }
+.rich-content .image-style-align-center { margin-left: auto; margin-right: auto; }
+.rich-content figure.image_resized { max-width: 100%; }
+.rich-content figure.image_resized img { width: 100%; }
+.rich-content figure.media { position: relative; margin: 1em auto; max-width: 100%; }
+.rich-content figure.media iframe,
+.rich-content figure.media .ck-media__wrapper { width: 100%; aspect-ratio: 16 / 9; height: auto; }
+.rich-content figure.media div[data-oembed-url] { position: relative; padding-bottom: 56.25%; height: 0; }
+.rich-content figure.media div[data-oembed-url] iframe { position: absolute; inset: 0; width: 100%; height: 100%; }
