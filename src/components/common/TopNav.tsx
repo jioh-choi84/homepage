@@ -22,7 +22,7 @@ export default function TopNav() {
           <Link
             href="/"
             aria-label={t.common.logo}
-            className="group relative inline-block shrink-0"
+            className="group relative inline-block shrink-0 ml-[38px]"
           >
             {/* 평소 로고 */}
             <Image
