@@ -41,7 +41,7 @@ export default function ExhibitionFeatured({ items }: { items: Exhibition[] }) {
                     {[venue, place].filter(Boolean).join(', ')}{period ? ` · ${period}` : ''}
                   </p>
                   {ex.description && (
-                    <LocalizedRichContent html={ex.description} className="mt-5 text-[var(--foreground)]" />
+                    <LocalizedRichContent html={ex.description} en={ex.description_en} className="mt-5 text-[var(--foreground)]" />
                   )}
                   {ex.external_url && (
                     <a href={ex.external_url} target="_blank" rel="noopener noreferrer"

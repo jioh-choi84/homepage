@@ -67,7 +67,7 @@ export default function ExhibitionList({ status, items }: { status: 'current' | 
         {isOpen && hasBody && (
           <div className="mt-4">
             {ex.description && (
-              <LocalizedRichContent html={ex.description} className="text-[var(--foreground)]" />
+              <LocalizedRichContent html={ex.description} en={ex.description_en} className="text-[var(--foreground)]" />
             )}
             {ex.external_url && (
               <a href={ex.external_url} target="_blank" rel="noopener noreferrer"

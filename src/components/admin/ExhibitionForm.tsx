@@ -6,6 +6,7 @@ import Button from '@/components/common/Button';
 import RichEditor from './RichEditor';
 import { TranslateButton, TranslateAllButton } from './TranslateButton';
 import SaveBar, { type SaveMsg } from './SaveBar';
+import { stripMediaHtml } from '@/lib/strip-media';
 
 interface ExhibitionFormProps {
   exhibition?: Exhibition;
@@ -312,13 +313,28 @@ export default function ExhibitionForm({
         </div>
       </div>
 
-      {/* 전시 본문 — 단일 글(한글+이미지+영상, 필요시 하단에 영어 번역을 직접 작성) */}
+      {/* 전시 본문 — 한글 글(이미지·영상 포함) */}
       <div className="text-sm text-gray-700">
         <span className="block mb-1 font-medium">전시 설명/본문 (글·이미지·유튜브)</span>
-        <span className="block mb-2 text-xs text-gray-500">필요하면 본문 하단에 영어 번역을 함께 작성하세요. (별도 영문 입력창 없음)</span>
         <RichEditor
           value={formData.description || ''}
           onChange={(html) => setFormData((p) => ({ ...p, description: html }))}
+        />
+      </div>
+
+      {/* 영문 글 (AI 생성·글만) — resources와 동일한 박스 복제 */}
+      <div className="text-xs text-gray-600">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-medium">영문 글 (AI 생성·글만) — 공개 시 한글 본문 아래에 이어 붙습니다</span>
+          <TranslateButton
+            source={stripMediaHtml(formData.description || '')}
+            onResult={(en) => setFormData((p) => ({ ...p, description_en: en }))}
+          />
+        </div>
+        <RichEditor
+          value={formData.description_en || ''}
+          onChange={(html) => setFormData((p) => ({ ...p, description_en: html }))}
+          textOnly
         />
       </div>
 
@@ -333,6 +349,7 @@ export default function ExhibitionForm({
               { source: formData.title, target: formData.title_en || '', apply: (en) => setFormData((p) => ({ ...p, title_en: en })) },
               { source: formData.venue, target: formData.venue_en || '', apply: (en) => setFormData((p) => ({ ...p, venue_en: en })) },
               { source: formData.location || '', target: formData.location_en || '', apply: (en) => setFormData((p) => ({ ...p, location_en: en })) },
+              { source: stripMediaHtml(formData.description || ''), target: formData.description_en || '', apply: (en) => setFormData((p) => ({ ...p, description_en: en })) },
             ]}
           />
         }
