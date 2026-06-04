@@ -3,7 +3,7 @@ import type { Translations } from './ko';
 export const en: Translations = {
   // 공통
   common: {
-    logo: 'Chuni Park',
+    logo: 'Jioh Choi',
   },
 
   // 네비게이션
@@ -50,7 +50,7 @@ export const en: Translations = {
     notice:
       'All artwork images on this website are copyrighted by the artist {name}. Unauthorized reproduction, distribution, modification, and commercial use of the artwork is prohibited. For inquiries regarding artwork usage, please contact via email.',
     defaultBio: 'Creating artworks that capture the nature and people of Korea.',
-    defaultName: 'Chuni Park',
+    defaultName: 'Jioh Choi',
   },
 
   // Exhibitions 페이지 (Phase 4에서 삭제 예정)

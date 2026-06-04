@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { GENRE_OPTIONS } from '@/types/artwork';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://www.chuniart.com';
+  const baseUrl = 'https://www.jiohchoi.com';
   const now = new Date();
 
   const genreUrls = GENRE_OPTIONS.map((g) => ({

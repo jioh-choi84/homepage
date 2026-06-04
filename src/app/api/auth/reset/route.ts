@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
     // 작가 이메일로 임시 비밀번호 발송
     const resend = new Resend(apiKey);
     const { error } = await resend.emails.send({
-      from: 'Chuni Park Admin <onboarding@resend.dev>',
+      from: 'Jioh Choi Admin <onboarding@resend.dev>',
       to: artistEmail,
-      subject: '[chuniart.com] 관리자 임시 비밀번호 안내',
+      subject: '[jiohchoi.com] 관리자 임시 비밀번호 안내',
       html: `
         <div style="font-family:sans-serif;line-height:1.6;color:#111">
           <h2>관리자 임시 비밀번호</h2>

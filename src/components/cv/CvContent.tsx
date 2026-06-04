@@ -15,7 +15,7 @@ interface CvContentProps {
 export default function CvContent({ cvInfo, artistName, artistNameEn, exhibitions }: CvContentProps) {
   const { locale, t } = useLocale();
 
-  const displayName = getLocalizedValue(locale, artistName, artistNameEn) || 'Chuni Park';
+  const displayName = getLocalizedValue(locale, artistName, artistNameEn) || 'Jioh Choi';
 
   // 입력 순서와 무관하게 항목 내에서 최근→과거(연도 내림차순) 자동 정렬.
   // 연도가 "2019–2021"처럼 범위면 가장 최근(가장 큰) 연도를 기준으로 한다.

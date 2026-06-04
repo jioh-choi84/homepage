@@ -2,7 +2,7 @@
 import { put } from '@vercel/blob';
 import { artworkDupKey } from './artwork-dedup';
 
-// Public base URL of the chuni_park Vercel Blob store, injected via env.
+// Public base URL of the Vercel Blob store, injected via env.
 // e.g. NEXT_PUBLIC_BLOB_BASE=https://<id>.public.blob.vercel-storage.com
 const BLOB_ORIGIN = process.env.NEXT_PUBLIC_BLOB_BASE ?? '';
 const BLOB_BASE = `${BLOB_ORIGIN}/data`;

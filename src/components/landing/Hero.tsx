@@ -35,7 +35,7 @@ export default function Hero({ featuredArtwork }: HeroProps) {
       {/* Content */}
       <div className="relative z-10 h-full flex flex-col items-center justify-center text-[var(--foreground)]">
         <h1 className="font-[family-name:var(--font-cormorant)] text-5xl md:text-7xl font-light tracking-wide">
-          Chuni Park
+          Jioh Choi
         </h1>
       </div>
 

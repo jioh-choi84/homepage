@@ -32,8 +32,8 @@ const notoSerifKr = Noto_Serif_KR({
 });
 
 export const metadata: Metadata = {
-  title: "Chuni Park | Artist Portfolio",
-  description: "Artwork portfolio of Chuni Park",
+  title: "Jioh Choi | Artist Portfolio",
+  description: "Artwork portfolio of Jioh Choi",
   icons: {
     icon: [
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },

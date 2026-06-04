@@ -13,8 +13,8 @@ export default function AboutContent({ aboutInfo }: AboutContentProps) {
   const { locale, t } = useLocale();
 
   const artistName = aboutInfo
-    ? getLocalizedValue(locale, aboutInfo.artist_name, aboutInfo.artist_name_en) || 'Chuni Park'
-    : 'Chuni Park';
+    ? getLocalizedValue(locale, aboutInfo.artist_name, aboutInfo.artist_name_en) || 'Jioh Choi'
+    : 'Jioh Choi';
 
   const bioParagraphs = aboutInfo
     ? getLocalizedValue(

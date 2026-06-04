@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Artist portfolio website for Chuni Park (화가 추니박) — a full-stack Next.js application with bilingual support (Korean/English) and an admin CMS. Images are stored on Cloudinary; structured content (artworks, exhibitions, resources, press, about, etc.) is stored as JSON on Vercel Blob. Live at **https://www.chuniart.com**, deployed on Vercel.
+Artist portfolio website for Jioh Choi (화가 지오 최) — a full-stack Next.js application with bilingual support (Korean/English) and an admin CMS. Images are stored on Cloudinary; structured content (artworks, exhibitions, resources, press, about, etc.) is stored as JSON on Vercel Blob. Live at **https://www.jiohchoi.com**, deployed on Vercel.
 
 The information architecture follows a David Hockney–style reference: a top horizontal nav with hover dropdowns, genre-based Works, cinematic Exhibitions, and rich-text Resources.
 
@@ -164,8 +164,8 @@ Vercel Blob has **read-after-write propagation delay** (CDN eventual consistency
 
 ## Deployment & Ops
 
-- **`git push origin main` triggers automatic production deploy** on Vercel (team `chunipark-s-projects`, project `chuni-park`). Commit author is repo-local `Chuni Park <morran444@gmail.com>`.
-- Live: https://www.chuniart.com · Admin: `/admin`
+- **`git push origin main` triggers automatic production deploy** on Vercel (team `jioh-choi84s-projects`, project `homepage`). GitHub repo: `jioh-choi84/homepage`.
+- Live: https://www.jiohchoi.com · Admin: `/admin`
 - **Default workflow when work is done: commit → push → let Vercel build/deploy → report** (do NOT gate on local `npm run build` every time). Vercel builds before promoting, so a compile error fails the deploy and production stays on the last good build. Run a local build only when you suspect a risky change. (The owner authorized auto commit/push for this repo, overriding the global "confirm before push" rule.)
 - Polling deploy status or running Blob scripts needs a Vercel token (user-supplied). `BLOB_READ_WRITE_TOKEN` lives in `.env.local` (auto-injected on Vercel).
 

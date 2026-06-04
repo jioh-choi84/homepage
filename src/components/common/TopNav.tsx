@@ -25,10 +25,10 @@ export default function TopNav() {
             className="group relative inline-block shrink-0 ml-[38px]"
           >
             <Image
-              src="/chuni-park-logo.png"
+              src="/jioh-choi-logo.png"
               alt={t.common.logo}
-              width={3790}
-              height={1382}
+              width={3545}
+              height={850}
               priority
               className="h-[65px] w-auto origin-left opacity-90 transition-all duration-300 ease-out group-hover:scale-[1.04] group-hover:opacity-100"
             />

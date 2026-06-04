@@ -1,7 +1,7 @@
 export const ko = {
   // 공통
   common: {
-    logo: '추니박',
+    logo: '지오 최',
   },
 
   // 네비게이션
@@ -52,7 +52,7 @@ export const ko = {
     notice:
       '본 웹사이트에 게시된 모든 작품 이미지의 저작권은 작가 {name}에게 있습니다.\n작품의 무단 복제, 배포, 수정 및 상업적 이용을 금지합니다.\n작품 사용에 관한 문의는 이메일로 연락 바랍니다.',
     defaultBio: '한국의 자연과 인물을 담은 작품 활동을 하고 있습니다.',
-    defaultName: '추니박',
+    defaultName: '지오 최',
   },
 
   // Exhibitions 페이지 (Phase 4에서 삭제 예정)

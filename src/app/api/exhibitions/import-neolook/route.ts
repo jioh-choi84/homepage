@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
   // 2) 메타/본문 파싱
   const canonical = extractMeta(html, 'og:url') || pageUrl.replace(/^https?:\/\/www\./, 'https://');
   const title = extractMeta(html, 'og:title') || '';
-  const ogDesc = extractMeta(html, 'og:description') || ''; // "추니박展 / Chuni Park / painting"
+  const ogDesc = extractMeta(html, 'og:description') || ''; // 예: "지오 최展 / Jioh Choi / painting"
   const ogImage = extractMeta(html, 'og:image') || '';
 
   // 유형 추론: 단체/그룹 키워드 없으면 개인전(solo)

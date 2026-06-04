@@ -19,7 +19,7 @@ async function isAuthenticated(): Promise<boolean> {
 // OCR 정확도 개선은 모델보다 입력 해상도가 좌우 → mediaResolution HIGH + 고해상도 업로드 유지.
 const MODEL = 'gemini-2.5-pro';
 
-const PROMPT = `너는 스캔된 한국 신문 기사 이미지를 분석한다(화가 추니박/박병춘 관련 보도 자료).
+const PROMPT = `너는 스캔된 한국 신문 기사 이미지를 분석한다(화가 지오 최/최현주 관련 보도 자료).
 다음을 수행해 **순수 JSON만** 출력하라(코드펜스·설명 금지):
 1) 기사 텍스트를 OCR하고 자연스럽게 정리(오탈자·줄바꿈 정돈).
 2) 같은 내용을 화가 포트폴리오에 어울리는 단정하고 자연스러운 영어로도 번역(과한 미사여구·학술체 금지).
