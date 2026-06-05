@@ -104,16 +104,17 @@ export default function PressManager({ onToast }: { onToast?: (m: string) => voi
     setSaving(true);
     setSaveMsg(null);
     try {
+      // 빈 입력은 undefined가 아닌 ''/null로 전송 — 병합 수정({...기존, ...body})에서 옛 값을 덮어 삭제 반영.
       const body = {
         category,
-        published_at: publishedAt ? new Date(publishedAt).toISOString() : undefined,
+        published_at: publishedAt ? new Date(publishedAt).toISOString() : null,
         title: title.trim(),
-        title_en: titleEn.trim() || undefined,
+        title_en: titleEn.trim(),
         content,
-        content_en: contentEn.trim() || undefined,
+        content_en: contentEn.trim(),
         thumbnail_url: thumb || null,
-        link_url: linkUrl.trim() || undefined,
-        pdf_url: pdfUrl.trim() || undefined,
+        link_url: linkUrl.trim(),
+        pdf_url: pdfUrl.trim(),
       };
       const res = await fetch(editingId ? `/api/press/${editingId}` : '/api/press', {
         method: editingId ? 'PUT' : 'POST',

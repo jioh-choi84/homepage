@@ -53,14 +53,15 @@ export default function NoticeManager({ onToast }: { onToast?: (m: string) => vo
       const wasEdit = !!editingId;
       const payload = {
         active, position,
-        title: title.trim(), title_en: titleEn.trim() || undefined,
-        body: body.trim() || undefined, body_en: bodyEn.trim() || undefined,
+        // 빈 입력은 undefined가 아닌 ''/null로 — 병합 수정에서 옛 값을 덮어 삭제 반영.
+        title: title.trim(), title_en: titleEn.trim(),
+        body: body.trim(), body_en: bodyEn.trim(),
         image_url: imageUrl || null,
-        link_url: linkUrl.trim() || undefined,
-        link_label: linkLabel.trim() || undefined,
-        link_label_en: linkLabelEn.trim() || undefined,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
+        link_url: linkUrl.trim(),
+        link_label: linkLabel.trim(),
+        link_label_en: linkLabelEn.trim(),
+        start_date: startDate || null,
+        end_date: endDate || null,
       };
       const res = await fetch(editingId ? `/api/notices/${editingId}` : '/api/notices', {
         method: editingId ? 'PUT' : 'POST',

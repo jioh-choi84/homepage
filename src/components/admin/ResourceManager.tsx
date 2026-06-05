@@ -39,7 +39,8 @@ export default function ResourceManager({ onToast }: { onToast?: (m: string) => 
     setSaving(true);
     setSaveMsg(null);
     try {
-      const body = { category, title: title.trim(), title_en: titleEn.trim() || undefined, content, content_en: contentEn.trim() || undefined, thumbnail_url: thumb || null };
+      // 빈 입력은 undefined가 아닌 ''로 전송 — 병합 수정에서 옛 값을 덮어 삭제 반영.
+      const body = { category, title: title.trim(), title_en: titleEn.trim(), content, content_en: contentEn.trim(), thumbnail_url: thumb || null };
       const res = await fetch(editingId ? `/api/resources/${editingId}` : '/api/resources', {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
