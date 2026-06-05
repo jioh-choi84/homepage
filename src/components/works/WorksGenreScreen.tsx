@@ -171,7 +171,7 @@ export default function WorksGenreScreen({ genre, genreSlug, groups, currentSlug
             </div>
 
             {/* 썸네일 그리드 */}
-            <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-4 gap-2 lg:w-[360px]">
+            <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-4 gap-2 lg:w-[360px] self-start content-start">
               {artworks.map((a, i) => (
                 <button
                   key={a.id}
