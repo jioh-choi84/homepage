@@ -1,5 +1,5 @@
 // JSON-based data layer using Vercel Blob for read/write
-import { put } from '@vercel/blob';
+import { put, get, BlobPreconditionFailedError } from '@vercel/blob';
 import { artworkDupKey } from './artwork-dedup';
 
 // Public base URL of the Vercel Blob store, injected via env.
@@ -99,6 +99,80 @@ async function writeJson(name: string, data: unknown): Promise<void> {
   });
   // Update cache immediately so next read within same instance gets fresh data
   cache.set(name, { data, ts: Date.now() });
+  // 비-CAS 전체쓰기는 ETag를 알 수 없으므로 CAS 스냅샷을 무효화(다음 mutate가 Blob 재읽기)
+  snapshot.delete(name);
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+// 현재 blob을 ETag와 함께 읽는다(없으면 {data:null, etag:null}).
+// get()은 내용(stream)과 etag를 한 응답에서 원자적으로 반환 → 내용·etag가 같은 버전(함정 3).
+// 압축 시 약한 ETag(W/"...")는 W/를 떼서 강한 저장 ETag와 맞춘다(함정 2).
+async function readWithEtag<T>(name: string): Promise<{ data: T | null; etag: string | null }> {
+  if (!BLOB_CONFIGURED) {
+    return { data: await readLocalJson<T>(name), etag: null };
+  }
+  const res = await get(`data/${name}.json`, { access: 'public' });
+  if (!res || !res.stream) return { data: null, etag: null };
+  const text = await new Response(res.stream as ReadableStream).text();
+  const etag = res.blob.etag ? res.blob.etag.replace(/^W\//, '') : null;
+  return { data: JSON.parse(text) as T, etag };
+}
+
+const CAS_MAX_ATTEMPTS = 8;
+
+// 인스턴스 권위 스냅샷(함정 4): 이 인스턴스가 마지막으로 성공적으로 쓴 {data, etag}.
+// put이 돌려준 강한 ETag를 보관 → 같은 인스턴스의 다음 수정이 CDN 전파 지연과 무관하게
+// 자기 최신본을 base로 사용(연속 단건 수정 즉시 성공). 다른 인스턴스가 끼어들면 ifMatch
+// 충돌로 감지 → 스냅샷 버리고 Blob 재읽기. CAS가 정합을 보장하므로 스냅샷 base도 안전.
+const snapshot = new Map<string, { data: unknown; etag: string }>();
+
+// 낙관적 동시성 제어(CAS) read-modify-write.
+// fn(current)이 {next, result}를 반환. next===undefined면 기록하지 않고 result만 반환
+// (대상 없음/변경 없음). put({ifMatch})로 충돌 감지 → 최신본 재읽기·재시도.
+export async function mutate<T, R>(
+  name: string,
+  fn: (current: T | null) => { next?: AnyData; result: R },
+): Promise<R> {
+  return withWriteLock(name, async () => {            // 같은 인스턴스 내 직렬화
+    const snap = snapshot.get(name);
+    let base: { data: T | null; etag: string | null } | null =
+      snap ? { data: snap.data as T, etag: snap.etag } : null;
+
+    for (let attempt = 0; attempt < CAS_MAX_ATTEMPTS; attempt++) {
+      if (!base) base = await readWithEtag<T>(name);    // 스냅샷 없으면 Blob 신선 읽기
+      const { next, result } = fn(base.data);
+      if (next === undefined) return result;
+      if (!BLOB_CONFIGURED) {
+        snapshot.set(name, { data: next, etag: 'local' });
+        cache.set(name, { data: next, ts: Date.now() });
+        return result;
+      }
+      try {
+        const putRes = await put(`data/${name}.json`, JSON.stringify(next, null, 2), {
+          access: 'public',
+          contentType: 'application/json',
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          cacheControlMaxAge: 0,
+          ...(base.etag ? { ifMatch: base.etag } : {}),
+        });
+        const newEtag = putRes.etag ? putRes.etag.replace(/^W\//, '') : '';
+        snapshot.set(name, { data: next, etag: newEtag }); // 자기 최신본 갱신(함정 4)
+        cache.set(name, { data: next, ts: Date.now() });
+        return result;
+      } catch (e) {
+        if (e instanceof BlobPreconditionFailedError) {    // 다른 인스턴스가 끼어듦
+          snapshot.delete(name);                            // 스냅샷 폐기
+          base = null;                                      // Blob 재읽기
+          await sleep(120 + attempt * 130);                 // 백오프(전파 대기)
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw new Error(`동시 수정 충돌이 반복됩니다(${name}). 잠시 후 다시 시도해 주세요.`);
+  });
 }
 
 // ============ READ ============
@@ -221,26 +295,25 @@ function nfcArtwork<T extends Record<string, AnyData>>(a: T): T {
 }
 
 export async function addArtwork(artwork: AnyData): Promise<AnyData> {
-  return withWriteLock('portfolio', async () => {
-    const artworks = await fetchJson<AnyData[]>('portfolio', true);
-    const art = nfcArtwork(artwork);
+  const art = nfcArtwork(artwork);
+  return mutate<AnyData[], AnyData>('portfolio', (current) => {
+    const artworks = current ?? [];
     // 서버측 중복 차단(권위 기준): 신선 목록과 제목·연도·크기가 같으면 거부.
     const key = artworkDupKey(art);
     if (artworks.some((a) => artworkDupKey(a) === key)) {
       throw new Error('DUPLICATE');
     }
     const maxOrder = Math.max(...artworks.map(a => a.order ?? 0), -1);
+    const now = new Date().toISOString();
     const newArtwork = {
       ...art,
       id: art.id || crypto.randomUUID(),
       tags: artwork.tags || [],
       order: maxOrder + 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
     };
-    artworks.push(newArtwork);
-    await writeJson('portfolio', artworks);
-    return newArtwork;
+    return { next: [...artworks, newArtwork], result: newArtwork };
   });
 }
 
@@ -249,8 +322,8 @@ export async function addArtwork(artwork: AnyData): Promise<AnyData> {
 // (last-write-wins), 일괄 업로드는 반드시 이 함수로 한 번에 저장한다.
 export async function addArtworks(list: AnyData[]): Promise<{ created: AnyData[]; skipped: number }> {
   if (!Array.isArray(list) || list.length === 0) return { created: [], skipped: 0 };
-  return withWriteLock('portfolio', async () => {
-    const artworks = await fetchJson<AnyData[]>('portfolio', true);
+  return mutate<AnyData[], { created: AnyData[]; skipped: number }>('portfolio', (current) => {
+    const artworks = [...(current ?? [])];
     // 서버측 중복 차단: 신선 목록 + 이번 배치 내 키를 모두 비교(클라 상태 stale 무관).
     const keys = new Set(artworks.map((a) => artworkDupKey(a)));
     let maxOrder = Math.max(...artworks.map(a => a.order ?? 0), -1);
@@ -274,30 +347,21 @@ export async function addArtworks(list: AnyData[]): Promise<{ created: AnyData[]
       created.push(na);
       artworks.push(na);
     }
-    if (created.length) await writeJson('portfolio', artworks);
-    return { created, skipped };
+    if (!created.length) return { result: { created: [], skipped } };
+    return { next: artworks, result: { created, skipped } };
   });
 }
 
 export async function updateArtwork(id: string, updates: Partial<AnyData>): Promise<AnyData | null> {
-  // put() 성공을 신뢰한다. 과거의 verify-재시도 루프는 Blob CDN 전파 지연 때문에
-  // 정상 저장에도 실패(throw→500)를 일으켜 제거. 쓰기 잠금 안에서 최신본을 읽어 병합·기록한다.
-  return withWriteLock('portfolio', async () => {
-    let artworks: AnyData[];
-    try {
-      const res = await fetch(`${BLOB_BASE}/portfolio.json?t=${Date.now()}_${Math.random()}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`status ${res.status}`);
-      artworks = await res.json() as AnyData[];
-    } catch {
-      // Blob 직접 읽기 실패 시 캐시/로컬 fallback
-      artworks = await fetchJson<AnyData[]>('portfolio', true);
-    }
-
-    const idx = artworks.findIndex((a: AnyData) => a.id === id);
-    if (idx === -1) return null;
-    artworks[idx] = nfcArtwork({ ...artworks[idx], ...updates, updated_at: new Date().toISOString() });
-    await writeJson('portfolio', artworks);
-    return artworks[idx];
+  // CAS read-modify-write: 다른 단건 수정이 끼어들어도 ifMatch로 충돌을 감지해 재시도하므로
+  // 작품을 하나씩 연속 수정해도 앞선 변경이 사라지지 않는다(lost-update 방지).
+  return mutate<AnyData[], AnyData | null>('portfolio', (current) => {
+    const artworks = current ? [...current] : [];
+    const idx = artworks.findIndex((a) => a.id === id);
+    if (idx === -1) return { result: null };
+    const updated = nfcArtwork({ ...artworks[idx], ...updates, updated_at: new Date().toISOString() });
+    artworks[idx] = updated;
+    return { next: artworks, result: updated };
   });
 }
 
@@ -366,12 +430,12 @@ export async function reclassifyArtworks(field: string, from: string, to: string
 }
 
 export async function deleteArtwork(id: string): Promise<boolean> {
-  return withWriteLock('portfolio', async () => {
-    const artworks = await fetchJson<AnyData[]>('portfolio', true);
+  // CAS: 하나씩 연속 삭제해도 ifMatch 충돌 재시도로 lost-update가 없다.
+  return mutate<AnyData[], boolean>('portfolio', (current) => {
+    const artworks = current ?? [];
     const filtered = artworks.filter(a => a.id !== id);
-    if (filtered.length === artworks.length) return false;
-    await writeJson('portfolio', filtered);
-    return true;
+    if (filtered.length === artworks.length) return { result: false };
+    return { next: filtered, result: true };
   });
 }
 
@@ -380,13 +444,13 @@ export async function deleteArtwork(id: string): Promise<boolean> {
 // 앞 삭제를 되살리는 lost-update가 생긴다. 일괄 삭제는 한 번만 읽고 한 번만 쓴다.
 export async function deleteArtworks(ids: string[]): Promise<number> {
   if (!Array.isArray(ids) || ids.length === 0) return 0;
-  return withWriteLock('portfolio', async () => {
-    const artworks = await fetchJson<AnyData[]>('portfolio', true);
+  return mutate<AnyData[], number>('portfolio', (current) => {
+    const artworks = current ?? [];
     const idSet = new Set(ids);
     const filtered = artworks.filter((a) => !idSet.has(a.id));
     const removed = artworks.length - filtered.length;
-    if (removed > 0) await writeJson('portfolio', filtered);
-    return removed;
+    if (removed === 0) return { result: 0 };
+    return { next: filtered, result: removed };
   });
 }
 
