@@ -19,7 +19,7 @@ export function ResourcesOverview({ covers }: { covers: Partial<Record<ResourceC
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {RESOURCE_CATEGORIES.map((c) => (
             <Link key={c.value} href={`/resources/${c.slug}`} className="group block">
-              <div className="relative aspect-[3/2] overflow-hidden bg-[var(--surface)]">
+              <div className="relative aspect-video overflow-hidden bg-[var(--background)]">
                 {covers[c.value] ? (
                   <Image src={covers[c.value]!} alt={c.label} fill sizes="(max-width:640px) 100vw, 50vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -68,7 +68,7 @@ export function ResourceList({ category, items }: { category: ResourceCategory; 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map((r) => (
               <Link key={r.id} href={`/resources/${slug}/${r.id}`} className="group block">
-                <div className="relative aspect-[4/3] overflow-hidden bg-[var(--surface)]">
+                <div className="relative aspect-video overflow-hidden bg-[var(--background)]">
                   {(() => {
                     const cover = coverImage(r.thumbnail_url, r.content);
                     return cover ? (
@@ -104,7 +104,7 @@ export function ResourceDetail({ resource }: { resource: Resource }) {
         {!firstImageFromHtml(resource.content) && (() => {
           const top = coverImage(resource.thumbnail_url, resource.content);
           return top ? (
-            <div className="relative w-full aspect-[16/9] my-6 bg-[var(--surface)]">
+            <div className="relative w-full aspect-video my-6 bg-[var(--background)]">
               <Image src={top} alt={title} fill sizes="100vw" className="object-contain"
                 {...(isCloud(top) ? { loader: cloudinaryLoader } : {})} />
             </div>
