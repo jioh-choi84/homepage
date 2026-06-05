@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Artwork, ArtworkGenre, genreLabel } from '@/types/artwork';
@@ -8,6 +8,7 @@ import type { WorksGroupNav } from '@/lib/works';
 import { useLocale } from '@/i18n';
 import { getLocalizedValue } from '@/lib/i18n-utils';
 import { cloudinaryLoader } from '@/lib/cloudinary-loader';
+import { trackView } from '@/lib/track-client';
 import ArtworkModal from '@/components/artwork/ArtworkModal';
 import WorksCollectionsNav from '@/components/works/WorksCollectionsNav';
 
@@ -24,6 +25,14 @@ export default function WorksGenreScreen({ genre, genreSlug, groups, currentSlug
   const { locale, t } = useLocale();
   const [selected, setSelected] = useState(0);
   const [modalIdx, setModalIdx] = useState<number | null>(null);
+
+  // 작품 상세 조회 기록 — 확대 모달이 열릴 때(좌우 이동 포함) 해당 작품을 집계.
+  useEffect(() => {
+    if (modalIdx === null) return;
+    const a = artworks[modalIdx];
+    if (!a) return;
+    trackView({ kind: 'artwork', id: a.id, series: a.series, theme: a.theme });
+  }, [modalIdx, artworks]);
 
   // 장르(브레드크럼)·연도는 영어 고정이지만, 주제/시리즈/지역은 한/영 전환되게 한다.
   // 연도(decade)는 label===label_en이라 locale과 무관하게 동일하게 표시됨.

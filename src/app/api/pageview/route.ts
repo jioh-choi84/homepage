@@ -35,6 +35,21 @@ function normalizeReferrer(referrer: string, selfHost: string): string {
   }
 }
 
+// 검색엔진 referrer host 판별 → 검색엔진명(아니면 null). 검색어 자체는 외부에서 수집 불가.
+function detectSearchEngine(host: string): string | null {
+  if (!host || host === 'direct') return null;
+  if (/(^|\.)google\./.test(host)) return 'google';
+  if (/(^|\.)naver\./.test(host)) return 'naver';
+  if (/(^|\.)daum\./.test(host)) return 'daum';
+  if (/(^|\.)bing\./.test(host)) return 'bing';
+  if (/(^|\.)yahoo\./.test(host)) return 'yahoo';
+  if (/duckduckgo\./.test(host)) return 'duckduckgo';
+  if (/(^|\.)yandex\./.test(host)) return 'yandex';
+  if (/(^|\.)baidu\./.test(host)) return 'baidu';
+  if (/(^|\.)search\./.test(host)) return '기타검색';
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const ua = request.headers.get('user-agent') || '';
@@ -52,17 +67,26 @@ export async function POST(request: NextRequest) {
     }
 
     const selfHost = request.headers.get('host') || '';
-    const referrer = normalizeReferrer(
+    const refHost = normalizeReferrer(
       typeof body.referrer === 'string' ? body.referrer : '',
       selfHost,
     );
+    const search = detectSearchEngine(refHost);
+    // 국가코드: Vercel 런타임에서만 채워짐(로컬은 없음 → 'ZZ')
+    const country = (request.headers.get('x-vercel-ip-country') || '').toUpperCase() || 'ZZ';
+    const dwellMs = typeof body.dwellMs === 'number' && isFinite(body.dwellMs) ? body.dwellMs : undefined;
+    const dwellOnly = body.dwellOnly === true;
 
     await recordPageview({
       path,
-      referrer,
+      referrer: refHost,
+      search,
+      country,
       device: parseDevice(ua),
       browser: parseBrowser(ua),
       newVisit: body.newVisit === true,
+      dwellMs,
+      dwellOnly,
     });
 
     return new NextResponse(null, { status: 204 });

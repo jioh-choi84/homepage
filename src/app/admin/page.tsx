@@ -712,7 +712,7 @@ export default function AdminPage() {
           {activeTab === 'stats' && (
             <>
               <h2 className="text-lg font-medium mb-6 text-gray-900">운영 통계</h2>
-              <StatsPanel stats={stats} loading={statsLoading} onRefresh={fetchStats} />
+              <StatsPanel stats={stats} loading={statsLoading} onRefresh={fetchStats} artworks={artworks} exhibitions={exhibitions} />
             </>
           )}
 
