@@ -30,7 +30,7 @@ export function PressOverview({ covers }: { covers: Partial<Record<PressCategory
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {PRESS_CATEGORIES.map((c) => (
             <Link key={c.value} href={`/press/${c.slug}`} className="group block">
-              <div className="relative aspect-[3/2] overflow-hidden bg-[var(--surface)]">
+              <div className="relative aspect-video overflow-hidden bg-[var(--background)]">
                 {covers[c.value] ? (
                   <Image src={covers[c.value]!} alt={c.label} fill sizes="(max-width:640px) 100vw, 50vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -79,7 +79,7 @@ export function PressList({ category, items }: { category: PressCategory; items:
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map((p) => (
               <Link key={p.id} href={`/press/${slug}/${p.id}`} className="group block">
-                <div className="relative aspect-[4/3] overflow-hidden bg-[var(--surface)]">
+                <div className="relative aspect-video overflow-hidden bg-[var(--background)]">
                   {(() => {
                     const cover = coverImage(p.thumbnail_url, p.content);
                     return cover ? (
@@ -127,9 +127,9 @@ export function PressDetail({ press }: { press: Press }) {
         {!firstImageFromHtml(press.content) && (() => {
           const top = coverImage(press.thumbnail_url, press.content);
           return top ? (
-            <div className="aspect-video relative bg-[var(--border)] mb-8 overflow-hidden">
+            <div className="aspect-video relative bg-[var(--background)] mb-8 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={top} alt={title || ''} className="w-full h-full object-cover" />
+              <img src={top} alt={title || ''} className="w-full h-full object-contain" />
             </div>
           ) : null;
         })()}
