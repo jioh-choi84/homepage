@@ -16,13 +16,13 @@ export default function TopNav() {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-40 bg-[var(--background)]/90 backdrop-blur-sm border-b border-[var(--border)]">
-        <div className="max-w-6xl mx-auto px-6 h-[84px] flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 h-[84px] flex items-center justify-between gap-2 md:gap-4">
           {/* Brand (좌측) — 손글씨 서명(배경 투명 PNG).
               마우스 오버 시 평소(청록·보라) ↔ 호버(초록·보라) 색상 크로스페이드. */}
           <Link
             href="/"
             aria-label={t.common.logo}
-            className="group relative inline-block shrink-0 ml-[38px]"
+            className="group relative inline-block shrink-0 md:ml-[38px]"
           >
             {/* 평소 로고 */}
             <Image
@@ -31,7 +31,7 @@ export default function TopNav() {
               width={3545}
               height={850}
               priority
-              className="h-[52px] w-auto opacity-90 transition-opacity duration-300 ease-out group-hover:opacity-0"
+              className="h-9 md:h-[52px] w-auto opacity-90 transition-opacity duration-300 ease-out group-hover:opacity-0"
             />
             {/* 호버 로고 (겹쳐서 색상만 전환) */}
             <Image
@@ -40,12 +40,12 @@ export default function TopNav() {
               aria-hidden
               width={3545}
               height={850}
-              className="absolute inset-0 h-[52px] w-auto opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
+              className="absolute inset-0 h-9 md:h-[52px] w-auto opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
             />
           </Link>
 
           {/* 우측 정렬: 메뉴 + 언어 + (모바일)햄버거 */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 md:gap-4 shrink-0">
             <nav className="hidden md:flex items-center gap-1">
               {menu.map((item) => {
                 const color = NAV_COLORS[item.href];
