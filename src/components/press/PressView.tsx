@@ -21,6 +21,9 @@ function formatDate(dateString: string, locale: 'ko' | 'en') {
   });
 }
 
+const pressCatLabel = (t: ReturnType<typeof useLocale>['t'], v: PressCategory) =>
+  v === 'article' ? t.nav.articles : t.nav.broadcasts;
+
 export function PressOverview({ covers }: { covers: Partial<Record<PressCategory, string>> }) {
   const { t } = useLocale();
   return (
@@ -32,14 +35,14 @@ export function PressOverview({ covers }: { covers: Partial<Record<PressCategory
             <Link key={c.value} href={`/press/${c.slug}`} className="group block">
               <div className="relative aspect-video overflow-hidden bg-[var(--background)]">
                 {covers[c.value] ? (
-                  <Image src={covers[c.value]!} alt={c.label} fill sizes="(max-width:640px) 100vw, 50vw"
+                  <Image src={covers[c.value]!} alt={pressCatLabel(t, c.value)} fill sizes="(max-width:640px) 100vw, 50vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                     {...(isCloud(covers[c.value]) ? { loader: cloudinaryLoader } : {})} />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-[var(--text-secondary)] text-sm">No items yet</div>
+                  <div className="absolute inset-0 flex items-center justify-center text-[var(--text-secondary)] text-sm">아직 없습니다</div>
                 )}
               </div>
-              <h2 className="mt-3 text-xl tracking-wide text-[var(--foreground)]">{c.label}</h2>
+              <h2 className="mt-3 text-xl tracking-wide text-[var(--foreground)]">{pressCatLabel(t, c.value)}</h2>
             </Link>
           ))}
         </div>
@@ -49,8 +52,8 @@ export function PressOverview({ covers }: { covers: Partial<Record<PressCategory
 }
 
 export function PressList({ category, items }: { category: PressCategory; items: Press[] }) {
-  const { locale } = useLocale();
-  const label = PRESS_CATEGORIES.find((c) => c.value === category)?.label ?? '';
+  const { locale, t } = useLocale();
+  const label = pressCatLabel(t, category);
   const slug = pressSlug(category);
 
   return (
@@ -58,7 +61,7 @@ export function PressList({ category, items }: { category: PressCategory; items:
       <div className="max-w-5xl mx-auto px-6 pt-24 pb-16">
         {/* 2차 네비 — 우측 정렬 (Resources와 동일) */}
         <div className="flex flex-wrap items-baseline justify-end gap-x-2 text-lg">
-          <Link href="/press" className="text-[var(--text-secondary)] hover:text-[var(--foreground)] tracking-wide">PRESS</Link>
+          <Link href="/press" className="text-[var(--text-secondary)] hover:text-[var(--foreground)] tracking-wide">{t.nav.press}</Link>
           <span className="text-[var(--text-secondary)]">/</span>
           <span className="font-medium tracking-wide text-[var(--foreground)]">{label}</span>
         </div>
@@ -68,7 +71,7 @@ export function PressList({ category, items }: { category: PressCategory; items:
               {i > 0 && <span className="text-[var(--border)]">/</span>}
               <Link href={`/press/${c.slug}`}
                 className={`hover:text-[var(--foreground)] transition-colors ${c.value === category ? 'text-[var(--foreground)] font-medium' : ''}`}>
-                {c.label}
+                {pressCatLabel(t, c.value)}
               </Link>
             </span>
           ))}
@@ -105,7 +108,7 @@ export function PressDetail({ press }: { press: Press }) {
   const { locale, t } = useLocale();
   const title = getLocalizedValue(locale, press.title, press.title_en);
   const slug = pressSlug(press.category);
-  const label = PRESS_CATEGORIES.find((c) => c.value === press.category)?.label ?? '';
+  const label = pressCatLabel(t, press.category);
 
   return (
     <main className="min-h-screen bg-[var(--background)]">

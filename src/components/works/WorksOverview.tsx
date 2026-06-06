@@ -15,7 +15,7 @@ export default function WorksOverview({ covers }: { covers: Partial<Record<Artwo
   return (
     <main className="min-h-screen bg-[var(--background)]">
       <div className="max-w-6xl mx-auto px-6 pt-24 pb-16">
-        <h1 className="text-3xl font-light tracking-wide text-[var(--foreground)] mb-8">Works</h1>
+        <h1 className="text-3xl font-light tracking-wide text-[var(--foreground)] mb-8">{t.nav.works}</h1>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-10">
           {GENRE_OPTIONS.map((g) => {
             const cover = covers[g.value];

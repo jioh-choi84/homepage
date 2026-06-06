@@ -29,15 +29,15 @@ type Tab = 'cv' | 'artworks' | 'workgroups' | 'categories' | 'exhibitions' | 'pr
 // Home·Contact은 편집 콘텐츠가 없어 제외. series·About·setting은 홈에 없어 중립색.
 const TABS: { key: Tab; label: string; color: string }[] = [
   { key: 'cv', label: 'CV', color: NAV_COLORS['/cv'] },
-  { key: 'artworks', label: 'Works', color: NAV_COLORS['/works'] },
-  { key: 'exhibitions', label: 'Exhibition', color: NAV_COLORS['/exhibition'] },
-  { key: 'resources', label: 'Resources', color: NAV_COLORS['/resources'] },
-  { key: 'press', label: 'Press', color: NAV_COLORS['/press'] },
-  { key: 'workgroups', label: 'Series', color: NEUTRAL_NAV_COLOR },
-  { key: 'about', label: 'About', color: NEUTRAL_NAV_COLOR },
+  { key: 'artworks', label: '작품', color: NAV_COLORS['/works'] },
+  { key: 'exhibitions', label: '전시', color: NAV_COLORS['/exhibition'] },
+  { key: 'resources', label: '아카이브', color: NAV_COLORS['/resources'] },
+  { key: 'press', label: '언론', color: NAV_COLORS['/press'] },
+  { key: 'workgroups', label: '시리즈', color: NEUTRAL_NAV_COLOR },
+  { key: 'about', label: '소개', color: NEUTRAL_NAV_COLOR },
   { key: 'notice', label: '공지', color: NEUTRAL_NAV_COLOR },
   { key: 'stats', label: '통계', color: NEUTRAL_NAV_COLOR },
-  { key: 'settings', label: 'Setting', color: NEUTRAL_NAV_COLOR },
+  { key: 'settings', label: '설정', color: NEUTRAL_NAV_COLOR },
 ];
 
 export default function AdminPage() {

@@ -12,16 +12,16 @@ export interface MenuItem {
   children?: SubMenuItem[];
 }
 
-// 메뉴별 컬러 (호크니 스타일 멀티컬러). Works는 눈에 띄는 빨강.
+// 메뉴별 컬러 — 항목별 개성은 유지하되 채도를 낮춘 차분한 뮤트 톤으로 통일감(품격).
 // TopNav(공개)와 관리자 탭이 동일 색을 공유하도록 여기서 단일 정의한다.
 export const NAV_COLORS: Record<string, string> = {
-  '/': '#6b7280',
-  '/cv': '#2563eb',
-  '/works': '#d12d2d',       // 빨강 — 강조
-  '/exhibition': '#0e7490',
-  '/resources': '#15803d',
-  '/press': '#b45309',
-  '/contact': '#2563eb',
+  '/': '#6b7280',            // 중성 회색(유지)
+  '/cv': '#51688f',          // 차분한 남색
+  '/works': '#b05a4e',       // 차분한 테라코타 — 강조
+  '/exhibition': '#41707c',  // 차분한 청록
+  '/resources': '#5c7d61',   // 차분한 녹
+  '/press': '#977045',       // 차분한 세피아
+  '/contact': '#51688f',     // cv와 통일
 };
 
 // 홈페이지 메뉴에 없는 관리자 전용 탭(series·about·setting)의 중립 컬러

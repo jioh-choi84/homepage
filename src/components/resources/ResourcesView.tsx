@@ -11,24 +11,28 @@ import { coverImage, firstImageFromHtml } from '@/lib/media-cover';
 
 const isCloud = (u?: string | null) => !!u && u.includes('res.cloudinary.com');
 
+const resCatLabel = (t: ReturnType<typeof useLocale>['t'], v: ResourceCategory) =>
+  v === 'making' ? t.nav.makingWorks : t.nav.writings;
+
 export function ResourcesOverview({ covers }: { covers: Partial<Record<ResourceCategory, string>> }) {
+  const { t } = useLocale();
   return (
     <main className="min-h-screen bg-[var(--background)]">
       <div className="max-w-5xl mx-auto px-6 pt-24 pb-16">
-        <h1 className="text-3xl font-light tracking-wide text-[var(--foreground)] mb-8">Resources</h1>
+        <h1 className="text-3xl font-light tracking-wide text-[var(--foreground)] mb-8">{t.nav.resources}</h1>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {RESOURCE_CATEGORIES.map((c) => (
             <Link key={c.value} href={`/resources/${c.slug}`} className="group block">
               <div className="relative aspect-video overflow-hidden bg-[var(--background)]">
                 {covers[c.value] ? (
-                  <Image src={covers[c.value]!} alt={c.label} fill sizes="(max-width:640px) 100vw, 50vw"
+                  <Image src={covers[c.value]!} alt={resCatLabel(t, c.value)} fill sizes="(max-width:640px) 100vw, 50vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                     {...(isCloud(covers[c.value]) ? { loader: cloudinaryLoader } : {})} />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-[var(--text-secondary)] text-sm">No items yet</div>
+                  <div className="absolute inset-0 flex items-center justify-center text-[var(--text-secondary)] text-sm">아직 없습니다</div>
                 )}
               </div>
-              <h2 className="mt-3 text-xl tracking-wide text-[var(--foreground)]">{c.label}</h2>
+              <h2 className="mt-3 text-xl tracking-wide text-[var(--foreground)]">{resCatLabel(t, c.value)}</h2>
             </Link>
           ))}
         </div>
@@ -38,8 +42,8 @@ export function ResourcesOverview({ covers }: { covers: Partial<Record<ResourceC
 }
 
 export function ResourceList({ category, items }: { category: ResourceCategory; items: Resource[] }) {
-  const { locale } = useLocale();
-  const label = RESOURCE_CATEGORIES.find((c) => c.value === category)?.label ?? '';
+  const { locale, t } = useLocale();
+  const label = resCatLabel(t, category);
   const slug = resourceSlug(category);
 
   return (
@@ -47,7 +51,7 @@ export function ResourceList({ category, items }: { category: ResourceCategory; 
       <div className="max-w-5xl mx-auto px-6 pt-24 pb-16">
         {/* 2차 네비 — 우측 정렬(Works와 동일) */}
         <div className="flex flex-wrap items-baseline justify-end gap-x-2 text-lg">
-          <Link href="/resources" className="text-[var(--text-secondary)] hover:text-[var(--foreground)] tracking-wide">RESOURCES</Link>
+          <Link href="/resources" className="text-[var(--text-secondary)] hover:text-[var(--foreground)] tracking-wide">{t.nav.resources}</Link>
           <span className="text-[var(--text-secondary)]">/</span>
           <span className="font-medium tracking-wide text-[var(--foreground)]">{label}</span>
         </div>
@@ -57,7 +61,7 @@ export function ResourceList({ category, items }: { category: ResourceCategory; 
               {i > 0 && <span className="text-[var(--border)]">/</span>}
               <Link href={`/resources/${c.slug}`}
                 className={`hover:text-[var(--foreground)] transition-colors ${c.value === category ? 'text-[var(--foreground)] font-medium' : ''}`}>
-                {c.label}
+                {resCatLabel(t, c.value)}
               </Link>
             </span>
           ))}
@@ -90,14 +94,14 @@ export function ResourceList({ category, items }: { category: ResourceCategory; 
 }
 
 export function ResourceDetail({ resource }: { resource: Resource }) {
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   const title = getLocalizedValue(locale, resource.title, resource.title_en);
   const slug = resourceSlug(resource.category);
 
   return (
     <main className="min-h-screen bg-[var(--background)]">
       <article className="max-w-3xl mx-auto px-6 pt-24 pb-16">
-        <Link href={`/resources/${slug}`} className="text-sm text-[var(--text-secondary)] hover:text-[var(--foreground)]">← {RESOURCE_CATEGORIES.find((c) => c.value === resource.category)?.label}</Link>
+        <Link href={`/resources/${slug}`} className="text-sm text-[var(--text-secondary)] hover:text-[var(--foreground)]">← {resCatLabel(t, resource.category)}</Link>
         <h1 className="mt-3 text-3xl font-light text-[var(--foreground)]">{title}</h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">{(resource.published_at || '').slice(0, 10)}</p>
         {/* 본문에 그림이 있으면 상단 대표이미지 생략, 없을 때만 fallback 표지 표시 */}

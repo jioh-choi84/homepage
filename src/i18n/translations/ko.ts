@@ -6,30 +6,30 @@ export const ko = {
 
   // 네비게이션
   nav: {
-    home: 'Home',
-    portfolio: 'Works',
-    works: 'Works',
+    home: '홈',
+    portfolio: '작품',
+    works: '작품',
     cv: 'CV',
-    exhibition: 'Exhibition',
-    exhibitions: 'Exhibitions',
-    resources: 'Resources',
-    press: 'Press',
-    contact: 'Contact',
+    exhibition: '전시',
+    exhibitions: '전시',
+    resources: '아카이브',
+    press: '언론',
+    contact: '연락처',
     // Works 하위
-    paintings: 'Paintings',
-    installations: 'Installations',
-    objets: 'Objets',
-    drawings: 'Drawings',
+    paintings: '회화',
+    installations: '설치',
+    objets: '오브제',
+    drawings: '드로잉',
     // Exhibition 하위
-    special: 'Featured',
-    current: 'Current',
-    past: 'Past',
+    special: '특별전',
+    current: '진행 전시',
+    past: '지난 전시',
     // Resources 하위
-    makingWorks: 'Process',
-    writings: 'Writings',
+    makingWorks: '작업 과정',
+    writings: '글',
     // Press 하위
-    articles: 'Articles',
-    broadcasts: 'Broadcasts',
+    articles: '기사',
+    broadcasts: '방송',
   },
 
   // 접근성 (aria-label)
@@ -57,7 +57,7 @@ export const ko = {
 
   // Exhibitions 페이지 (Phase 4에서 삭제 예정)
   exhibitions: {
-    title: 'Exhibitions',
+    title: '전시',
     soloExhibitions: '개인전',
     groupExhibitions: '단체전',
     noExhibitions: 'No exhibitions to display',
@@ -87,7 +87,7 @@ export const ko = {
 
   // Press 페이지
   press: {
-    title: 'Press',
+    title: '언론',
     noItems: '등록된 항목이 없습니다',
     readMore: '자세히 보기',
     externalLink: '원문 보기',
@@ -100,7 +100,7 @@ export const ko = {
 
   // Contact 페이지
   contact: {
-    title: 'Contact',
+    title: '연락처',
     artist: 'Artist',
     introduction: 'About',
     email: 'Email',
@@ -139,10 +139,10 @@ export const ko = {
 
   // Portfolio 페이지
   portfolio: {
-    title: 'Works',
-    backToPortfolio: 'Back to Portfolio',
-    noCategories: 'No categories yet',
-    noArtworks: 'No artworks in this category',
+    title: '작품',
+    backToPortfolio: '작품 목록으로',
+    noCategories: '아직 분류가 없습니다',
+    noArtworks: '이 분류에 작품이 없습니다',
   },
 
   // Landing 페이지
