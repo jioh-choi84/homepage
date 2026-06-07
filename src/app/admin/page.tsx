@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Artwork, ArtworkFormData, Category, CategoryFormData, AboutInfo, AboutFormData, CvInfo, CvFormData, Exhibition, ExhibitionFormData, Tag, StatsData } from '@/types/artwork';
+import { Artwork, ArtworkFormData, Category, CategoryFormData, AboutInfo, AboutFormData, CvInfo, CvFormData, Exhibition, ExhibitionFormData, Tag, StatsData, WorkFolder } from '@/types/artwork';
 import { NAV_COLORS, NEUTRAL_NAV_COLOR } from '@/lib/menu';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
@@ -76,6 +76,7 @@ export default function AdminPage() {
   // Stats state
   const [stats, setStats] = useState<StatsData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsFolders, setStatsFolders] = useState<WorkFolder[]>([]);
 
   // Tags state
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -191,10 +192,16 @@ export default function AdminPage() {
   const fetchStats = async () => {
     setStatsLoading(true);
     try {
-      const response = await fetch('/api/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
+      const [statsRes, foldersRes] = await Promise.all([
+        fetch('/api/stats'),
+        fetch('/api/work-folders'),
+      ]);
+      if (statsRes.ok) {
+        setStats(await statsRes.json());
+      }
+      if (foldersRes.ok) {
+        const f = await foldersRes.json();
+        setStatsFolders(Array.isArray(f) ? f : []);
       }
     } catch {
       setError('통계를 불러올 수 없습니다');
@@ -712,7 +719,7 @@ export default function AdminPage() {
           {activeTab === 'stats' && (
             <>
               <h2 className="text-lg font-medium mb-6 text-gray-900">운영 통계</h2>
-              <StatsPanel stats={stats} loading={statsLoading} onRefresh={fetchStats} artworks={artworks} exhibitions={exhibitions} />
+              <StatsPanel stats={stats} loading={statsLoading} onRefresh={fetchStats} folders={statsFolders} artworks={artworks} />
             </>
           )}
 

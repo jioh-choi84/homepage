@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { recordPageview } from '@/lib/data';
+import { recordPageview, recordDwell } from '@/lib/data';
 
 // 공개(비보호) 페이지뷰 수집 엔드포인트. 클라이언트 비콘(PageViewTracker)이 호출.
 // 실패해도 방문자 경험에 영향이 없도록 항상 조용히 204를 반환한다.
@@ -35,21 +35,6 @@ function normalizeReferrer(referrer: string, selfHost: string): string {
   }
 }
 
-// 검색엔진 referrer host 판별 → 검색엔진명(아니면 null). 검색어 자체는 외부에서 수집 불가.
-function detectSearchEngine(host: string): string | null {
-  if (!host || host === 'direct') return null;
-  if (/(^|\.)google\./.test(host)) return 'google';
-  if (/(^|\.)naver\./.test(host)) return 'naver';
-  if (/(^|\.)daum\./.test(host)) return 'daum';
-  if (/(^|\.)bing\./.test(host)) return 'bing';
-  if (/(^|\.)yahoo\./.test(host)) return 'yahoo';
-  if (/duckduckgo\./.test(host)) return 'duckduckgo';
-  if (/(^|\.)yandex\./.test(host)) return 'yandex';
-  if (/(^|\.)baidu\./.test(host)) return 'baidu';
-  if (/(^|\.)search\./.test(host)) return '기타검색';
-  return null;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const ua = request.headers.get('user-agent') || '';
@@ -58,7 +43,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const path = typeof body.path === 'string' ? body.path : '';
 
-    // 유효성: '/'로 시작, 길이 제한, 관리자/내부 경로 제외
     if (!path.startsWith('/') || path.length > 256) {
       return new NextResponse(null, { status: 204 });
     }
@@ -66,32 +50,32 @@ export async function POST(request: NextRequest) {
       return new NextResponse(null, { status: 204 });
     }
 
+    // 체류시간 이벤트
+    if (body.type === 'dwell') {
+      const dwellMs = typeof body.dwellMs === 'number' ? body.dwellMs : 0;
+      await recordDwell({ path, dwellMs });
+      return new NextResponse(null, { status: 204 });
+    }
+
+    // 페이지뷰 이벤트
     const selfHost = request.headers.get('host') || '';
-    const refHost = normalizeReferrer(
+    const referrer = normalizeReferrer(
       typeof body.referrer === 'string' ? body.referrer : '',
       selfHost,
     );
-    const search = detectSearchEngine(refHost);
-    // 국가코드: Vercel 런타임에서만 채워짐(로컬은 없음 → 'ZZ')
-    const country = (request.headers.get('x-vercel-ip-country') || '').toUpperCase() || 'ZZ';
-    const dwellMs = typeof body.dwellMs === 'number' && isFinite(body.dwellMs) ? body.dwellMs : undefined;
-    const dwellOnly = body.dwellOnly === true;
+    const country = request.headers.get('x-vercel-ip-country') || 'XX';
 
     await recordPageview({
       path,
-      referrer: refHost,
-      search,
-      country,
+      referrer,
       device: parseDevice(ua),
       browser: parseBrowser(ua),
       newVisit: body.newVisit === true,
-      dwellMs,
-      dwellOnly,
+      country,
     });
 
     return new NextResponse(null, { status: 204 });
   } catch {
-    // 집계 실패는 조용히 무시
     return new NextResponse(null, { status: 204 });
   }
 }

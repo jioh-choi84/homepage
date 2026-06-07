@@ -302,49 +302,29 @@ export interface CvFormData {
   cv_file_url?: string;
 }
 
-// 운영 통계(방문자) — Vercel Blob `stats.json`. 일자별 다차원 집계(기간 필터용).
-export interface StatsDay {
+// 운영 통계(방문자) — Vercel Blob `stats.json`에 누적되는 집계 데이터
+export interface StatsDaily {
   pageviews: number;
   visits: number;
-  hours: Record<string, number>;       // KST 시간대 '0'..'23'
-  countries: Record<string, number>;   // 국가코드(국내='KR')
-  paths: Record<string, number>;       // 경로별
-  referrers: Record<string, number>;   // 일반 유입 호스트
-  search: Record<string, number>;      // 검색엔진별 유입(google/naver/...)
-  devices: Record<string, number>;     // mobile/desktop
-  browsers: Record<string, number>;    // Chrome/Safari/...
-  artworks: Record<string, number>;    // 작품 id별 조회
-  exhibitions: Record<string, number>; // 전시 id별 조회
-  series: Record<string, number>;      // 시리즈별 인기
-  themes: Record<string, number>;      // 주제별 인기
-  dwellSum: number;                    // 체류시간 합(ms)
-  dwellCount: number;                  // 체류 측정 건수
+  countries?: Record<string, number>;
+  series?: Record<string, number>;
+  paths?: Record<string, number>;
+  sources?: Record<string, number>;
 }
 
 export interface StatsData {
   id: string;
-  totals: { pageviews: number; visits: number }; // 전체 누적
-  daily: Record<string, StatsDay>;               // key: 'YYYY-MM-DD'(KST)
-  updated_at: string | null;
-}
-
-// 기간 합산 결과(StatsPanel/CSV 공용)
-export interface StatsAggregate {
-  pageviews: number;
-  visits: number;
-  avgDwellMs: number;
-  hours: Record<string, number>;
-  countries: Record<string, number>;
-  referrers: Record<string, number>;
-  search: Record<string, number>;
+  totals: { pageviews: number; visits: number };
+  daily: Record<string, StatsDaily>; // key: 'YYYY-MM-DD' (KST)
+  // 전체 누적 차원
   devices: Record<string, number>;
   browsers: Record<string, number>;
-  paths: Record<string, number>;
-  artworks: Record<string, number>;
-  exhibitions: Record<string, number>;
-  series: Record<string, number>;
-  themes: Record<string, number>;
-  trend: { date: string; pageviews: number; visits: number }[];
+  referrers: Record<string, number>;       // 상세 호스트(기존 유지)
+  hours: Record<string, number>;            // '0'~'23' (KST)
+  weekdays: Record<string, number>;         // '0'(일)~'6'(토)
+  dwell: { totalMs: number; samples: number };           // 사이트 평균 체류
+  pathDwell: Record<string, { totalMs: number; samples: number }>; // 페이지별 체류
+  updated_at: string | null;
 }
 
 // Exhibition page types

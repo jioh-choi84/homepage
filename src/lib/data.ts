@@ -1,6 +1,7 @@
 // JSON-based data layer using Vercel Blob for read/write
 import { put, get, BlobPreconditionFailedError } from '@vercel/blob';
 import { artworkDupKey } from './artwork-dedup';
+import { classifyReferrerSource, seriesKeyFromPath, kstHourWeekday, clampDwell } from './stats';
 
 // Public base URL of the Vercel Blob store, injected via env.
 // e.g. NEXT_PUBLIC_BLOB_BASE=https://<id>.public.blob.vercel-storage.com
@@ -653,40 +654,31 @@ export async function deleteNotice(id: string): Promise<boolean> {
 // 서버리스 인스턴스별 메모리 뮤텍스(withWriteLock)이므로 동시 인스턴스 간 경합으로
 // 드물게 증분이 유실될 수 있으나 트래픽이 낮아 무시 가능.
 
-const STATS_MAX_DAILY = 90;   // 일별 기록 보존 일수
-const STATS_MAX_KEYS = 300;   // paths/referrers 최대 보존 키 수
+const STATS_MAX_DAILY = 90;        // 일별 기록 보존 일수
+const STATS_MAX_DAILY_KEYS = 50;   // 일별 차원별 최대 키 수
+const STATS_MAX_REFERRERS = 300;   // 상세 referrer 호스트 상한
+const STATS_MAX_PATHDWELL = 200;   // 페이지별 체류 상한
+const STATS_MAX_COUNTRY = 60;      // 안전상한(일별 국가)
 
 const DEFAULT_STATS = {
   id: 'stats',
   totals: { pageviews: 0, visits: 0 },
-  daily: {} as Record<string, AnyData>,   // key 'YYYY-MM-DD' → StatsDay
+  daily: {} as Record<string, {
+    pageviews: number; visits: number;
+    countries?: Record<string, number>;
+    series?: Record<string, number>;
+    paths?: Record<string, number>;
+    sources?: Record<string, number>;
+  }>,
+  devices: {} as Record<string, number>,
+  browsers: {} as Record<string, number>,
+  referrers: {} as Record<string, number>,
+  hours: {} as Record<string, number>,
+  weekdays: {} as Record<string, number>,
+  dwell: { totalMs: 0, samples: 0 },
+  pathDwell: {} as Record<string, { totalMs: number; samples: number }>,
   updated_at: null as string | null,
 };
-
-// 하루치 빈 엔트리(모든 차원 dict 포함)
-function freshDay(): AnyData {
-  return {
-    pageviews: 0, visits: 0,
-    hours: {}, countries: {}, paths: {}, referrers: {}, search: {},
-    devices: {}, browsers: {}, artworks: {}, exhibitions: {},
-    series: {}, themes: {}, dwellSum: 0, dwellCount: 0,
-  };
-}
-
-// 일자 dict의 누락 차원 방어(구버전/부분 데이터 대비)
-const STATS_DAY_DIMS = ['hours','countries','paths','referrers','search','devices','browsers','artworks','exhibitions','series','themes'];
-function ensureDay(d: AnyData): AnyData {
-  d.pageviews ??= 0; d.visits ??= 0; d.dwellSum ??= 0; d.dwellCount ??= 0;
-  for (const k of STATS_DAY_DIMS) d[k] ??= {};
-  return d;
-}
-
-// 서버 기준 한국 시간(KST) 0~23시
-function seoulHour(): number {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false }).formatToParts(new Date());
-  const h = parts.find((p) => p.type === 'hour')?.value ?? '0';
-  return parseInt(h, 10) % 24;
-}
 
 function freshStats(): AnyData {
   return JSON.parse(JSON.stringify(DEFAULT_STATS));
@@ -705,6 +697,19 @@ function pruneDaily(daily: Record<string, { pageviews: number; visits: number }>
   if (keys.length <= max) return daily;
   const keep = keys.slice(keys.length - max);
   return Object.fromEntries(keep.map((k) => [k, daily[k]]));
+}
+
+// 일별 entry 안의 각 차원을 Top N으로 prune
+function pruneDailyDims(
+  daily: Record<string, { countries?: Record<string, number>; series?: Record<string, number>; paths?: Record<string, number>; sources?: Record<string, number> }>,
+) {
+  for (const day of Object.keys(daily)) {
+    const e = daily[day];
+    if (e.countries) e.countries = pruneTop(e.countries, STATS_MAX_COUNTRY);
+    if (e.series) e.series = pruneTop(e.series, STATS_MAX_DAILY_KEYS);
+    if (e.paths) e.paths = pruneTop(e.paths, STATS_MAX_DAILY_KEYS);
+    if (e.sources) e.sources = pruneTop(e.sources, STATS_MAX_DAILY_KEYS);
+  }
 }
 
 // 서버 기준 한국 시간(KST)의 'YYYY-MM-DD'
@@ -733,111 +738,97 @@ export async function resetStats(): Promise<AnyData> {
 
 export async function recordPageview(input: {
   path: string;
-  referrer: string;
-  search?: string | null;     // 검색엔진명(google 등) — 있으면 search로, 없으면 referrer로 분류
-  country?: string;           // 국가코드(KR 등)
-  hour?: number;              // KST 0~23(없으면 서버 시각)
+  referrer: string;   // 정규화된 host 또는 'direct'
   device: string;
   browser: string;
   newVisit: boolean;
-  dwellMs?: number;           // 체류시간(ms)
-  dwellOnly?: boolean;        // true면 체류시간만 누적(페이지뷰 카운트 제외)
+  country: string;    // 'KR' 등, 없으면 'XX'
 }): Promise<void> {
   await withWriteLock('stats', async () => {
     let s: AnyData;
-    try { s = await fetchJson<AnyData>('stats', true); } catch { s = freshStats(); }
+    try {
+      s = await fetchJson<AnyData>('stats', true);
+    } catch {
+      s = freshStats();
+    }
+    // 누락 필드 방어
     s.totals ??= { pageviews: 0, visits: 0 };
-    s.daily ??= {};
+    s.daily ??= {}; s.devices ??= {}; s.browsers ??= {};
+    s.referrers ??= {}; s.hours ??= {}; s.weekdays ??= {};
+    s.dwell ??= { totalMs: 0, samples: 0 }; s.pathDwell ??= {};
 
+    const now = new Date();
     const day = seoulDay();
-    const d = ensureDay(s.daily[day] ?? freshDay());
+    const { hour, weekday } = kstHourWeekday(now);
 
-    if (!input.dwellOnly) {
-      s.totals.pageviews = (s.totals.pageviews ?? 0) + 1;
-      d.pageviews += 1;
-      if (input.newVisit) { s.totals.visits = (s.totals.visits ?? 0) + 1; d.visits += 1; }
+    s.totals.pageviews += 1;
+    if (input.newVisit) s.totals.visits += 1;
 
-      const hour = String(input.hour ?? seoulHour());
-      d.hours[hour] = (d.hours[hour] ?? 0) + 1;
-      const country = (input.country || 'ZZ').toUpperCase();
-      d.countries[country] = (d.countries[country] ?? 0) + 1;
-      if (input.path) d.paths[input.path] = (d.paths[input.path] ?? 0) + 1;
-      if (input.search) d.search[input.search] = (d.search[input.search] ?? 0) + 1;
-      else { const ref = input.referrer || 'direct'; d.referrers[ref] = (d.referrers[ref] ?? 0) + 1; }
-      d.devices[input.device] = (d.devices[input.device] ?? 0) + 1;
-      d.browsers[input.browser] = (d.browsers[input.browser] ?? 0) + 1;
-      d.paths = pruneTop(d.paths, STATS_MAX_KEYS);
-      d.referrers = pruneTop(d.referrers, STATS_MAX_KEYS);
-    }
+    const e = s.daily[day] ?? { pageviews: 0, visits: 0 };
+    e.pageviews += 1;
+    if (input.newVisit) e.visits += 1;
+    e.countries ??= {}; e.series ??= {}; e.paths ??= {}; e.sources ??= {};
 
-    if (typeof input.dwellMs === 'number' && input.dwellMs > 0) {
-      d.dwellSum += Math.min(input.dwellMs, 30 * 60 * 1000); // 30분 상한(이상치 방어)
-      d.dwellCount += 1;
-    }
+    // 국가
+    const country = (input.country || 'XX').toUpperCase().slice(0, 2);
+    e.countries[country] = (e.countries[country] ?? 0) + 1;
+    // 경로
+    e.paths[input.path] = (e.paths[input.path] ?? 0) + 1;
+    // 시리즈/주제
+    const series = seriesKeyFromPath(input.path);
+    if (series) e.series[series] = (e.series[series] ?? 0) + 1;
+    // 유입 출처 그룹
+    const source = classifyReferrerSource(input.referrer);
+    e.sources[source] = (e.sources[source] ?? 0) + 1;
+    s.daily[day] = e;
 
-    s.daily[day] = d;
+    // 전체 누적
+    s.devices[input.device] = (s.devices[input.device] ?? 0) + 1;
+    s.browsers[input.browser] = (s.browsers[input.browser] ?? 0) + 1;
+    const ref = input.referrer || 'direct';
+    s.referrers[ref] = (s.referrers[ref] ?? 0) + 1;
+    s.hours[String(hour)] = (s.hours[String(hour)] ?? 0) + 1;
+    s.weekdays[String(weekday)] = (s.weekdays[String(weekday)] ?? 0) + 1;
+
+    // prune
     s.daily = pruneDaily(s.daily, STATS_MAX_DAILY);
-    s.updated_at = new Date().toISOString();
+    pruneDailyDims(s.daily);
+    s.referrers = pruneTop(s.referrers, STATS_MAX_REFERRERS);
+
+    s.updated_at = now.toISOString();
     await writeJson('stats', s);
   });
 }
 
-// 작품/전시 상세 조회 기록(모달 오픈/항목 노출 시 호출). 작품이면 series/theme도 집계.
-export async function recordView(input: {
-  kind: 'artwork' | 'exhibition';
-  id: string;
-  series?: string | null;
-  theme?: string | null;
-}): Promise<void> {
-  if (!input.id) return;
+export async function recordDwell(input: { path: string; dwellMs: number }): Promise<void> {
+  const ms = clampDwell(input.dwellMs);
+  if (ms === null) return;
   await withWriteLock('stats', async () => {
     let s: AnyData;
-    try { s = await fetchJson<AnyData>('stats', true); } catch { s = freshStats(); }
-    s.daily ??= {};
-    const day = seoulDay();
-    const d = ensureDay(s.daily[day] ?? freshDay());
-    if (input.kind === 'artwork') {
-      d.artworks[input.id] = (d.artworks[input.id] ?? 0) + 1;
-      const se = (input.series || '').trim();
-      if (se) d.series[se] = (d.series[se] ?? 0) + 1;
-      const th = (input.theme || '').trim();
-      if (th) d.themes[th] = (d.themes[th] ?? 0) + 1;
-    } else {
-      d.exhibitions[input.id] = (d.exhibitions[input.id] ?? 0) + 1;
+    try {
+      s = await fetchJson<AnyData>('stats', true);
+    } catch {
+      s = freshStats();
     }
-    s.daily[day] = d;
-    s.daily = pruneDaily(s.daily, STATS_MAX_DAILY);
+    s.dwell ??= { totalMs: 0, samples: 0 };
+    s.pathDwell ??= {};
+    s.dwell.totalMs += ms;
+    s.dwell.samples += 1;
+    const p = s.pathDwell[input.path] ?? { totalMs: 0, samples: 0 };
+    p.totalMs += ms; p.samples += 1;
+    s.pathDwell[input.path] = p;
+    s.pathDwell = pruneTopByField(s.pathDwell, STATS_MAX_PATHDWELL);
     s.updated_at = new Date().toISOString();
     await writeJson('stats', s);
   });
 }
 
-// 기간 합산(from~to inclusive, 'YYYY-MM-DD'). 미지정 시 전체. StatsPanel/CSV 공용.
-export async function aggregateStats(from?: string, to?: string): Promise<AnyData> {
-  const s = await getStats();
-  const daily: Record<string, AnyData> = s.daily || {};
-  const dates = Object.keys(daily)
-    .filter((dt) => (!from || dt >= from) && (!to || dt <= to))
-    .sort();
-  const dims = ['hours','countries','referrers','search','devices','browsers','paths','artworks','exhibitions','series','themes'];
-  const agg: AnyData = {
-    pageviews: 0, visits: 0, dwellSum: 0, dwellCount: 0,
-    hours: {}, countries: {}, referrers: {}, search: {}, devices: {}, browsers: {},
-    paths: {}, artworks: {}, exhibitions: {}, series: {}, themes: {}, trend: [] as AnyData[],
-  };
-  for (const dt of dates) {
-    const d = ensureDay(daily[dt] || freshDay());
-    agg.pageviews += d.pageviews || 0;
-    agg.visits += d.visits || 0;
-    agg.dwellSum += d.dwellSum || 0;
-    agg.dwellCount += d.dwellCount || 0;
-    for (const dim of dims) {
-      const src = d[dim] || {};
-      const dst = agg[dim];
-      for (const k in src) dst[k] = (dst[k] || 0) + src[k];
-    }
-    agg.trend.push({ date: dt, pageviews: d.pageviews || 0, visits: d.visits || 0 });
-  }
-  agg.avgDwellMs = agg.dwellCount ? Math.round(agg.dwellSum / agg.dwellCount) : 0;
-  return agg;
+// {key: {samples}} 객체를 samples 기준 Top N 보존
+function pruneTopByField(
+  obj: Record<string, { totalMs: number; samples: number }>,
+  max: number,
+): Record<string, { totalMs: number; samples: number }> {
+  const entries = Object.entries(obj);
+  if (entries.length <= max) return obj;
+  return Object.fromEntries(entries.sort((a, b) => b[1].samples - a[1].samples).slice(0, max));
 }

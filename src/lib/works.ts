@@ -1,4 +1,5 @@
 import type { Artwork, ArtworkGenre, WorkFolder } from '@/types/artwork';
+import { GENRE_OPTIONS, DEFAULT_GENRE } from '@/types/artwork';
 
 // 폴더 하위(지역) 노드
 export interface SubFolderNav {
@@ -179,4 +180,18 @@ export function defaultGroupSlug(groups: WorksGroupNav[]): string | null {
   const decades = groups.filter((g) => g.kind === 'decade');
   if (decades.length) return decades[decades.length - 1].slug; // 최신 연도
   return groups[0]?.slug ?? null;
+}
+
+// '/works/{genreSlug}/{groupSlug}' → 한글 라벨 맵 (통계 시리즈/주제 표시용)
+export function groupLabelBySlug(artworks: Artwork[], folders: WorkFolder[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const opt of GENRE_OPTIONS) {
+    const genreArts = artworks.filter((a) => (a.genre || DEFAULT_GENRE) === opt.value);
+    if (!genreArts.length) continue;
+    for (const g of buildGenreTree(genreArts, folders, opt.value)) {
+      if (g.kind === 'decade') continue; // 연도는 슬러그 자체가 읽기 쉬움
+      map[`${opt.slug}/${g.slug}`] = g.label;
+    }
+  }
+  return map;
 }

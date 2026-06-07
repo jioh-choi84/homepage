@@ -6,7 +6,6 @@ import { useLocale } from '@/i18n';
 import { getLocalizedValue } from '@/lib/i18n-utils';
 import LocalizedRichContent from '@/components/common/LocalizedRichContent';
 import ExhibitionNav from './ExhibitionNav';
-import { trackView } from '@/lib/track-client';
 
 const SOLO_PER_PAGE = 5;
 
@@ -46,11 +45,7 @@ export default function ExhibitionList({ status, items }: { status: 'current' | 
       <li key={ex.id} className="py-4">
         <button
           type="button"
-          onClick={() => {
-            const willOpen = !isOpen;
-            setOpenId(willOpen ? ex.id : null);
-            if (willOpen) trackView({ kind: 'exhibition', id: ex.id });
-          }}
+          onClick={() => setOpenId(isOpen ? null : ex.id)}
           className="w-full text-left group flex items-start justify-between gap-3"
           aria-expanded={isOpen}
         >
