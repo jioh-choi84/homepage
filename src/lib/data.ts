@@ -218,16 +218,15 @@ export async function getTagById(id: string): Promise<AnyData | undefined> {
 }
 
 export async function addTag(tag: AnyData): Promise<AnyData> {
-  return withWriteLock('tags', async () => {
-    const tags = await fetchJson<AnyData[]>('tags', true);
-    const newTag = {
-      ...tag,
-      id: tag.id || crypto.randomUUID(),
-      created_at: new Date().toISOString(),
-    };
-    tags.push(newTag);
-    await writeJson('tags', tags);
-    return newTag;
+  // CAS: 동시 추가에도 ifMatch 재시도로 lost-update가 없다(태그 유실 방지).
+  const newTag = {
+    ...tag,
+    id: tag.id || crypto.randomUUID(),
+    created_at: new Date().toISOString(),
+  };
+  return mutate<AnyData[], AnyData>('tags', (current) => {
+    const tags = current ? [...current] : [];
+    return { next: [...tags, newTag], result: newTag };
   });
 }
 
@@ -529,13 +528,16 @@ function slugifyGroup(s: string): string {
 // 추가/수정/삭제는 쓰기 잠금 안에서 '신선한' 목록을 읽어 처리한다.
 // (addArtwork와 동일 패턴 — Blob 전파 지연으로 옛 목록을 읽어 덮어써 데이터가 사라지는 것 방지)
 export async function addWorkGroup(input: AnyData): Promise<AnyData> {
-  return withWriteLock('work_groups', async () => {
-    const groups = await fetchJson<AnyData[]>('work_groups', true);
+  // CAS: 동시 추가/수정에도 ifMatch 재시도로 lost-update가 없다.
+  const id = crypto.randomUUID();
+  const created_at = new Date().toISOString();
+  return mutate<AnyData[], AnyData>('work_groups', (current) => {
+    const groups = current ? [...current] : [];
     let slug = slugifyGroup(input.name_en || input.name);
     while (groups.some((g) => g.slug === slug)) slug = `${slug}-${crypto.randomUUID().slice(0, 2)}`;
     const maxOrder = Math.max(...groups.map((g) => g.order ?? 0), -1);
     const newGroup = {
-      id: crypto.randomUUID(),
+      id,
       genre: input.genre,
       name: input.name,
       name_en: input.name_en || null,
@@ -543,31 +545,28 @@ export async function addWorkGroup(input: AnyData): Promise<AnyData> {
       match_field: input.match_field === 'theme' ? 'theme' : 'series',
       match_value: input.match_value,
       order: input.order ?? maxOrder + 1,
-      created_at: new Date().toISOString(),
+      created_at,
     };
-    await writeJson('work_groups', [...groups, newGroup]);
-    return newGroup;
+    return { next: [...groups, newGroup], result: newGroup };
   });
 }
 
 export async function updateWorkGroup(id: string, patch: Partial<AnyData>): Promise<AnyData | null> {
-  return withWriteLock('work_groups', async () => {
-    const groups = await fetchJson<AnyData[]>('work_groups', true);
+  return mutate<AnyData[], AnyData | null>('work_groups', (current) => {
+    const groups = current ? [...current] : [];
     const idx = groups.findIndex((g) => g.id === id);
-    if (idx === -1) return null;
+    if (idx === -1) return { result: null };
     groups[idx] = { ...groups[idx], ...patch };
-    await writeJson('work_groups', groups);
-    return groups[idx];
+    return { next: groups, result: groups[idx] };
   });
 }
 
 export async function deleteWorkGroup(id: string): Promise<boolean> {
-  return withWriteLock('work_groups', async () => {
-    const groups = await fetchJson<AnyData[]>('work_groups', true);
+  return mutate<AnyData[], boolean>('work_groups', (current) => {
+    const groups = current ?? [];
     const filtered = groups.filter((g) => g.id !== id);
-    if (filtered.length === groups.length) return false;
-    await writeJson('work_groups', filtered);
-    return true;
+    if (filtered.length === groups.length) return { result: false };
+    return { next: filtered, result: true };
   });
 }
 
@@ -594,14 +593,15 @@ export async function getNotices(): Promise<AnyData[]> {
   }
 }
 export async function addNotice(input: AnyData): Promise<AnyData> {
-  return withWriteLock('notices', async () => {
-    let notices: AnyData[];
-    try { notices = await fetchJson<AnyData[]>('notices', true); } catch { notices = []; }
+  // CAS: 동시 추가/수정에도 ifMatch 재시도로 lost-update가 없다.
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  return mutate<AnyData[], AnyData>('notices', (current) => {
+    const notices = Array.isArray(current) ? [...current] : [];
     if (notices.length >= NOTICES_MAX) throw new Error(`공지는 최대 ${NOTICES_MAX}개까지 등록할 수 있습니다.`);
     const maxOrder = Math.max(...notices.map((n) => n.order ?? 0), -1);
-    const now = new Date().toISOString();
     const newNotice = {
-      id: crypto.randomUUID(),
+      id,
       active: input.active ?? true,
       position: input.position || 'center',
       title: input.title || '',
@@ -618,29 +618,24 @@ export async function addNotice(input: AnyData): Promise<AnyData> {
       created_at: now,
       updated_at: now,
     };
-    await writeJson('notices', [...notices, newNotice]);
-    return newNotice;
+    return { next: [...notices, newNotice], result: newNotice };
   });
 }
 export async function updateNotice(id: string, patch: Partial<AnyData>): Promise<AnyData | null> {
-  return withWriteLock('notices', async () => {
-    let notices: AnyData[];
-    try { notices = await fetchJson<AnyData[]>('notices', true); } catch { notices = []; }
+  return mutate<AnyData[], AnyData | null>('notices', (current) => {
+    const notices = Array.isArray(current) ? [...current] : [];
     const idx = notices.findIndex((n) => n.id === id);
-    if (idx === -1) return null;
+    if (idx === -1) return { result: null };
     notices[idx] = { ...notices[idx], ...patch, id, updated_at: new Date().toISOString() };
-    await writeJson('notices', notices);
-    return notices[idx];
+    return { next: notices, result: notices[idx] };
   });
 }
 export async function deleteNotice(id: string): Promise<boolean> {
-  return withWriteLock('notices', async () => {
-    let notices: AnyData[];
-    try { notices = await fetchJson<AnyData[]>('notices', true); } catch { notices = []; }
+  return mutate<AnyData[], boolean>('notices', (current) => {
+    const notices = Array.isArray(current) ? [...current] : [];
     const filtered = notices.filter((n) => n.id !== id);
-    if (filtered.length === notices.length) return false;
-    await writeJson('notices', filtered);
-    return true;
+    if (filtered.length === notices.length) return { result: false };
+    return { next: filtered, result: true };
   });
 }
 

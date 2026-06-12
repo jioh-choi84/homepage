@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { getResources, updateResources } from '@/lib/data';
+import { getResources, mutate } from '@/lib/data';
 
 const SESSION = 'admin_session';
 async function isAuth() { return !!(await cookies()).get(SESSION); }
@@ -13,7 +13,6 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   if (!(await isAuth())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await request.json();
-  const list = await getResources();
   const now = new Date().toISOString();
   const item = {
     id: crypto.randomUUID(),
@@ -27,8 +26,11 @@ export async function POST(request: NextRequest) {
     created_at: now,
     updated_at: now,
   };
-  list.push(item);
-  await updateResources(list);
+  // CAS: 동시 추가 시 lost-update 방지([id] 수정/삭제와 동일 패턴).
+  await mutate<Array<Record<string, unknown>>, void>('resources', (current) => {
+    const list = current ? [...current] : [];
+    return { next: [...list, item], result: undefined };
+  });
   reval();
   return NextResponse.json(item, { status: 201 });
 }

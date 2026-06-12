@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getPress, updatePress } from '@/lib/data';
+import { getPress, mutate } from '@/lib/data';
 import { revalidatePath } from 'next/cache';
 
 const SESSION_COOKIE_NAME = 'admin_session';
@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
   if (!(await isAuthenticated())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json();
-    const press = await getPress();
     const now = new Date().toISOString();
     const newItem = {
       ...body,
@@ -26,8 +25,11 @@ export async function POST(request: NextRequest) {
       created_at: now,
       updated_at: now,
     };
-    press.push(newItem);
-    await updatePress(press);
+    // CAS: 동시 추가 시 lost-update 방지([id] 수정/삭제와 동일 패턴).
+    await mutate<Array<Record<string, unknown>>, void>('press', (current) => {
+      const press = current ? [...current] : [];
+      return { next: [...press, newItem], result: undefined };
+    });
     revalidatePath('/press', 'layout');
     return NextResponse.json(newItem, { status: 201 });
   } catch (e) {

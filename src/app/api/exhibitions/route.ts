@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getExhibitions, updateExhibitions } from '@/lib/data';
+import { getExhibitions, mutate } from '@/lib/data';
 import { revalidatePath } from 'next/cache';
 
 const SESSION_COOKIE_NAME = 'admin_session';
@@ -16,10 +16,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   if (!(await isAuthenticated())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await request.json();
-  const exhibitions = await getExhibitions();
   const newExh = { ...body, id: crypto.randomUUID(), created_at: new Date().toISOString() };
-  exhibitions.push(newExh);
-  await updateExhibitions(exhibitions);
-    revalidatePath('/exhibition', 'layout'); revalidatePath('/cv');
+  // CAS: 동시 추가 시 lost-update 방지([id] 수정/삭제와 동일 패턴).
+  await mutate<Array<Record<string, unknown>>, void>('exhibitions', (current) => {
+    const exhibitions = current ? [...current] : [];
+    return { next: [...exhibitions, newExh], result: undefined };
+  });
+  revalidatePath('/exhibition', 'layout'); revalidatePath('/cv');
   return NextResponse.json(newExh, { status: 201 });
 }
