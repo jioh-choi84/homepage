@@ -736,6 +736,110 @@ export async function resetStats(): Promise<AnyData> {
   return fresh;
 }
 
+// ── 방문통계 버퍼 + 임계치 flush ───────────────────────────────────────────
+// 페이지뷰/체류 이벤트마다 Blob 에 쓰면(put) Advanced Operations 무료 한도를 금세 초과한다.
+// 그래서 이벤트는 모듈 메모리 버퍼에 적재하고, 건수/시간 임계치 도달 시에만 1회 flush 한다.
+// (Fluid Compute 웜 인스턴스가 요청 간 모듈 상태를 유지하므로 가능.)
+const STATS_FLUSH_COUNT = 50;                 // 이만큼 쌓이면 즉시 flush
+const STATS_FLUSH_INTERVAL_MS = 10 * 60_000;  // 또는 마지막 flush 후 10분 경과 시
+type StatsEvent = { type: 'pv' | 'dwell'; input: AnyData };
+let statsPending: StatsEvent[] = [];
+let statsLastFlushTs = 0;
+
+// 페이지뷰 1건을 stats 객체에 누적(prune 제외 — flush 시 1회만 prune).
+// day/hour/weekday 는 이벤트 발생 시점에 계산해 input 에 담아 둔다(버킷 정확도).
+function applyPageview(s: AnyData, input: AnyData): void {
+  // 누락 필드 방어
+  s.totals ??= { pageviews: 0, visits: 0 };
+  s.daily ??= {}; s.devices ??= {}; s.browsers ??= {};
+  s.referrers ??= {}; s.hours ??= {}; s.weekdays ??= {};
+  s.dwell ??= { totalMs: 0, samples: 0 }; s.pathDwell ??= {};
+
+  const day: string = input.day;
+  const hour: number = input.hour;
+  const weekday: number = input.weekday;
+
+  s.totals.pageviews += 1;
+  if (input.newVisit) s.totals.visits += 1;
+
+  const e = s.daily[day] ?? { pageviews: 0, visits: 0 };
+  e.pageviews += 1;
+  if (input.newVisit) e.visits += 1;
+  e.countries ??= {}; e.series ??= {}; e.paths ??= {}; e.sources ??= {};
+
+  // 국가
+  const country = (input.country || 'XX').toUpperCase().slice(0, 2);
+  e.countries[country] = (e.countries[country] ?? 0) + 1;
+  // 경로
+  e.paths[input.path] = (e.paths[input.path] ?? 0) + 1;
+  // 시리즈/주제
+  const series = seriesKeyFromPath(input.path);
+  if (series) e.series[series] = (e.series[series] ?? 0) + 1;
+  // 유입 출처 그룹
+  const source = classifyReferrerSource(input.referrer);
+  e.sources[source] = (e.sources[source] ?? 0) + 1;
+  s.daily[day] = e;
+
+  // 전체 누적
+  s.devices[input.device] = (s.devices[input.device] ?? 0) + 1;
+  s.browsers[input.browser] = (s.browsers[input.browser] ?? 0) + 1;
+  const ref = input.referrer || 'direct';
+  s.referrers[ref] = (s.referrers[ref] ?? 0) + 1;
+  s.hours[String(hour)] = (s.hours[String(hour)] ?? 0) + 1;
+  s.weekdays[String(weekday)] = (s.weekdays[String(weekday)] ?? 0) + 1;
+}
+
+// 체류시간 1건을 stats 객체에 누적(prune 제외). input.dwellMs 는 이미 clamp 통과분.
+function applyDwell(s: AnyData, input: AnyData): void {
+  s.dwell ??= { totalMs: 0, samples: 0 };
+  s.pathDwell ??= {};
+  s.dwell.totalMs += input.dwellMs;
+  s.dwell.samples += 1;
+  const p = s.pathDwell[input.path] ?? { totalMs: 0, samples: 0 };
+  p.totalMs += input.dwellMs; p.samples += 1;
+  s.pathDwell[input.path] = p;
+}
+
+// 버퍼를 한 번에 적용 + prune 후 Blob 에 기록(기존 CAS mutate 사용 → lost-update 없음).
+async function flushStats(): Promise<void> {
+  if (statsPending.length === 0) return;
+  // 동시 flush 중복 적용 방지: 버퍼를 먼저 스냅샷하고 비운다.
+  const batch = statsPending;
+  statsPending = [];
+  try {
+    await mutate<AnyData, void>('stats', (current) => {
+      const s = current ?? freshStats();
+      for (const ev of batch) {
+        if (ev.type === 'pv') applyPageview(s, ev.input);
+        else applyDwell(s, ev.input);
+      }
+      // prune 은 배치 적용 후 1회만
+      s.daily = pruneDaily(s.daily, STATS_MAX_DAILY);
+      pruneDailyDims(s.daily);
+      s.referrers = pruneTop(s.referrers, STATS_MAX_REFERRERS);
+      s.pathDwell = pruneTopByField(s.pathDwell, STATS_MAX_PATHDWELL);
+      s.updated_at = new Date().toISOString();
+      return { next: s, result: undefined };
+    });
+    statsLastFlushTs = Date.now();
+  } catch {
+    // 실패분은 되돌려 다음 기회에 재시도(비콘 경로는 항상 204).
+    statsPending = batch.concat(statsPending);
+  }
+}
+
+// 임계치(건수/시간) 도달 시에만 flush. 대부분의 요청은 메모리 적재만 하고 끝난다.
+async function maybeFlush(): Promise<void> {
+  const now = Date.now();
+  if (statsLastFlushTs === 0) statsLastFlushTs = now; // 첫 적재 기준점
+  if (
+    statsPending.length >= STATS_FLUSH_COUNT ||
+    (statsPending.length > 0 && now - statsLastFlushTs >= STATS_FLUSH_INTERVAL_MS)
+  ) {
+    await flushStats();
+  }
+}
+
 export async function recordPageview(input: {
   path: string;
   referrer: string;   // 정규화된 host 또는 'direct'
@@ -744,83 +848,18 @@ export async function recordPageview(input: {
   newVisit: boolean;
   country: string;    // 'KR' 등, 없으면 'XX'
 }): Promise<void> {
-  await withWriteLock('stats', async () => {
-    let s: AnyData;
-    try {
-      s = await fetchJson<AnyData>('stats', true);
-    } catch {
-      s = freshStats();
-    }
-    // 누락 필드 방어
-    s.totals ??= { pageviews: 0, visits: 0 };
-    s.daily ??= {}; s.devices ??= {}; s.browsers ??= {};
-    s.referrers ??= {}; s.hours ??= {}; s.weekdays ??= {};
-    s.dwell ??= { totalMs: 0, samples: 0 }; s.pathDwell ??= {};
-
-    const now = new Date();
-    const day = seoulDay();
-    const { hour, weekday } = kstHourWeekday(now);
-
-    s.totals.pageviews += 1;
-    if (input.newVisit) s.totals.visits += 1;
-
-    const e = s.daily[day] ?? { pageviews: 0, visits: 0 };
-    e.pageviews += 1;
-    if (input.newVisit) e.visits += 1;
-    e.countries ??= {}; e.series ??= {}; e.paths ??= {}; e.sources ??= {};
-
-    // 국가
-    const country = (input.country || 'XX').toUpperCase().slice(0, 2);
-    e.countries[country] = (e.countries[country] ?? 0) + 1;
-    // 경로
-    e.paths[input.path] = (e.paths[input.path] ?? 0) + 1;
-    // 시리즈/주제
-    const series = seriesKeyFromPath(input.path);
-    if (series) e.series[series] = (e.series[series] ?? 0) + 1;
-    // 유입 출처 그룹
-    const source = classifyReferrerSource(input.referrer);
-    e.sources[source] = (e.sources[source] ?? 0) + 1;
-    s.daily[day] = e;
-
-    // 전체 누적
-    s.devices[input.device] = (s.devices[input.device] ?? 0) + 1;
-    s.browsers[input.browser] = (s.browsers[input.browser] ?? 0) + 1;
-    const ref = input.referrer || 'direct';
-    s.referrers[ref] = (s.referrers[ref] ?? 0) + 1;
-    s.hours[String(hour)] = (s.hours[String(hour)] ?? 0) + 1;
-    s.weekdays[String(weekday)] = (s.weekdays[String(weekday)] ?? 0) + 1;
-
-    // prune
-    s.daily = pruneDaily(s.daily, STATS_MAX_DAILY);
-    pruneDailyDims(s.daily);
-    s.referrers = pruneTop(s.referrers, STATS_MAX_REFERRERS);
-
-    s.updated_at = now.toISOString();
-    await writeJson('stats', s);
-  });
+  // 일/시/요일 버킷은 이벤트 발생 시점 기준으로 고정(flush 지연과 무관).
+  const day = seoulDay();
+  const { hour, weekday } = kstHourWeekday(new Date());
+  statsPending.push({ type: 'pv', input: { ...input, day, hour, weekday } });
+  await maybeFlush();
 }
 
 export async function recordDwell(input: { path: string; dwellMs: number }): Promise<void> {
   const ms = clampDwell(input.dwellMs);
   if (ms === null) return;
-  await withWriteLock('stats', async () => {
-    let s: AnyData;
-    try {
-      s = await fetchJson<AnyData>('stats', true);
-    } catch {
-      s = freshStats();
-    }
-    s.dwell ??= { totalMs: 0, samples: 0 };
-    s.pathDwell ??= {};
-    s.dwell.totalMs += ms;
-    s.dwell.samples += 1;
-    const p = s.pathDwell[input.path] ?? { totalMs: 0, samples: 0 };
-    p.totalMs += ms; p.samples += 1;
-    s.pathDwell[input.path] = p;
-    s.pathDwell = pruneTopByField(s.pathDwell, STATS_MAX_PATHDWELL);
-    s.updated_at = new Date().toISOString();
-    await writeJson('stats', s);
-  });
+  statsPending.push({ type: 'dwell', input: { path: input.path, dwellMs: ms } });
+  await maybeFlush();
 }
 
 // {key: {samples}} 객체를 samples 기준 Top N 보존
