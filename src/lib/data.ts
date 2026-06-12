@@ -377,15 +377,10 @@ export async function reclassifyArtworks(field: string, from: string, to: string
   const oldVal = String(from || '').trim();
   const newVal = to && String(to).trim() ? String(to).trim() : null;
 
-  const result = await withWriteLock('portfolio', async () => {
-    let list: AnyData[];
-    try {
-      const res = await fetch(`${BLOB_BASE}/portfolio.json?t=${Date.now()}_${Math.random()}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`status ${res.status}`);
-      list = await res.json() as AnyData[];
-    } catch {
-      list = await fetchJson<AnyData[]>('portfolio', true);
-    }
+  // CAS read-modify-write: 원시 CDN fetch+writeJson(비조건부 덮어쓰기)은 전파지연/경합 때 옛
+  // 목록을 읽어 덮어써 삭제가 되살아난다. mutate(ifMatch)로 충돌 감지·재시도해 영속 보장.
+  const result = await mutate<AnyData[], { list: AnyData[]; count: number }>('portfolio', (current) => {
+    const list = current ? current.map((a) => ({ ...a })) : [];
     let count = 0;
     const now = new Date().toISOString();
     for (const a of list) {
@@ -395,16 +390,15 @@ export async function reclassifyArtworks(field: string, from: string, to: string
         count++;
       }
     }
-    if (count) await writeJson('portfolio', list);
-    return { list, count };
+    if (!count) return { result: { list, count } };       // 변경 없음 → 쓰기 생략
+    return { next: list, result: { list, count } };
   });
 
   // 폴더 메타데이터 동기화(저장된 work_folders가 있을 때만; 없으면 작품값에서 자동 도출됨)
   if (AXIS_FIELDS.includes(field)) {
-    await withWriteLock('work_folders', async () => {
-      let folders: AnyData[];
-      try { folders = await fetchJson<AnyData[]>('work_folders', true); } catch { folders = []; }
-      if (!Array.isArray(folders) || !folders.length) return;
+    await mutate<AnyData[], void>('work_folders', (current) => {
+      const folders = Array.isArray(current) ? current : [];
+      if (!folders.length) return { result: undefined };  // 폴더 없음 → 쓰기 생략
       let changed = false;
       const out: AnyData[] = [];
       for (const f of folders) {
@@ -423,7 +417,8 @@ export async function reclassifyArtworks(field: string, from: string, to: string
         }
         out.push(f);
       }
-      if (changed) await writeJson('work_folders', out);
+      if (!changed) return { result: undefined };          // 변경 없음 → 쓰기 생략
+      return { next: out, result: undefined };
     });
   }
 
