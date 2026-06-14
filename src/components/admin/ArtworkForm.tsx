@@ -106,7 +106,6 @@ export default function ArtworkForm({ artwork, categories, existingArtworks = []
     setThumbnailUrl(artwork?.thumbnail_url || '');
     setErrors({});
     setSaveMsg(null);
-    setDominantColor(artwork?.dominant_color || null);
   }, [artwork]);
 
   const validate = () => {
@@ -171,7 +170,6 @@ export default function ArtworkForm({ artwork, categories, existingArtworks = []
         hidden,
         image_url: imageUrl,
         thumbnail_url: thumbnailUrl,
-        dominant_color: dominantColor,
       });
       setSaveMsg({ ok: true, text: '저장되었습니다.' });
     } catch (err) {
@@ -180,8 +178,6 @@ export default function ArtworkForm({ artwork, categories, existingArtworks = []
       setLoading(false);
     }
   };
-
-  const [dominantColor, setDominantColor] = useState<string | null>(artwork?.dominant_color || null);
 
   const handleImageUpload = async (newImageUrl: string, newThumbnailUrl: string, originalName?: string) => {
     setImageUrl(newImageUrl);
@@ -207,23 +203,6 @@ export default function ArtworkForm({ artwork, categories, existingArtworks = []
         else if (!mediumEn.trim()) setMediumEn(v);
       }
       if (p.year) setYear(String(p.year));
-    }
-
-    // 색상 자동 분석
-    try {
-      const res = await fetch('/api/portfolio/analyze-color', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_url: newImageUrl }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.dominant_color) {
-          setDominantColor(data.dominant_color);
-        }
-      }
-    } catch (err) {
-      console.error('Color analysis failed:', err);
     }
   };
 

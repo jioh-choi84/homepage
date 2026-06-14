@@ -166,7 +166,6 @@ export interface Artwork {
   category_id: string | null;
   category?: Category;
   // New fields for views
-  dominant_color: string | null;  // HSL format for color wheel
   tags?: Tag[];  // Populated via join
   connections?: ArtworkConnection[];  // Populated for mindmap view
   created_at: string;
@@ -197,7 +196,6 @@ export interface ArtworkFormData {
   show_watermark?: boolean;
   hidden?: boolean;
   category_id?: string;
-  dominant_color?: string | null;
 }
 
 export interface CategoryFormData {

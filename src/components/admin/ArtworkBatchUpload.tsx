@@ -39,7 +39,7 @@ function distinctVals(arts: Artwork[], field: 'series' | 'theme' | 'region'): st
 }
 
 const COMPRESS_THRESHOLD = Math.floor(9.5 * 1024 * 1024);
-// 한 번에 안전하게 처리 가능한 최대 장수 (순차 업로드·브라우저 메모리·색상분석 호출 고려).
+// 한 번에 안전하게 처리 가능한 최대 장수 (순차 업로드·브라우저 메모리 고려).
 // 더 많으면 나눠서 업로드.
 const MAX_FILES = 30;
 
@@ -180,17 +180,6 @@ export default function ArtworkBatchUpload({ onComplete, onClose, existingArtwor
       try {
         const { image_url, thumbnail_url } = await uploadToCloudinary(row.file);
 
-        // 색상 자동분석 (실패해도 진행)
-        let dominant_color: string | null = null;
-        try {
-          const cRes = await fetch('/api/portfolio/analyze-color', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_url }),
-          });
-          if (cRes.ok) dominant_color = (await cRes.json()).dominant_color ?? null;
-        } catch { /* best-effort */ }
-
         bodies.push({
           // 한글 제목이 비어 있고 영문만 있으면 한글 칸은 비워 둔다(영문은 title_en으로).
           // 둘 다 비면 파일명을 한글 제목으로 폴백.
@@ -208,7 +197,6 @@ export default function ArtworkBatchUpload({ onComplete, onClose, existingArtwor
           genre,
           image_url,
           thumbnail_url,
-          dominant_color,
         });
         okRowIds.push(row.id);
         setDoneCount((c) => c + 1);

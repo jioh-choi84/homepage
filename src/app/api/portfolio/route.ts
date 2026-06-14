@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     artworks = artworks.map((a: Record<string, unknown>) => ({
       id: a.id, title: a.title, title_en: a.title_en, year: a.year,
       image_url: a.image_url, thumbnail_url: a.thumbnail_url,
-      dominant_color: a.dominant_color, is_featured: a.is_featured,
+      is_featured: a.is_featured,
       order: a.order, category_id: a.category_id,
     }));
   }

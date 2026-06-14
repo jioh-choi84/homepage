@@ -26,7 +26,7 @@ export default function ArtworkCard({ artwork, onClick, priority = false }: Artw
       {/* 이미지 영역 */}
       <div
         className="relative aspect-[4/5] w-full overflow-hidden"
-        style={{ backgroundColor: artwork.dominant_color || 'var(--background)' }}
+        style={{ backgroundColor: 'var(--background)' }}
       >
         <Image
           src={artwork.image_url}
