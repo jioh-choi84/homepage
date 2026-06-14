@@ -191,6 +191,8 @@ export function groupLabelBySlug(artworks: Artwork[], folders: WorkFolder[]): Re
     for (const g of buildGenreTree(genreArts, folders, opt.value)) {
       if (g.kind === 'decade') continue; // 연도는 슬러그 자체가 읽기 쉬움
       map[`${opt.slug}/${g.slug}`] = g.label;
+      // 지역 하위 폴더(3단계 경로)도 라벨 매핑 — 통계에서 r-<해시> 슬러그 노출 방지
+      for (const c of g.children ?? []) map[`${opt.slug}/${g.slug}/${c.slug}`] = c.label;
     }
   }
   return map;

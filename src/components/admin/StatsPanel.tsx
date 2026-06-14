@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatsData, WorkFolder, Artwork, GENRE_OPTIONS } from '@/types/artwork';
 import Button from '@/components/common/Button';
 import { groupLabelBySlug } from '@/lib/works';
@@ -31,6 +31,10 @@ const PAGE_NAMES: Record<string, string> = {
   '/': '홈 (메인)', '/about': '소개(About)', '/cv': 'CV', '/contact': '연락처(Contact)',
   '/works': '작품(Works)', '/exhibition': '전시(Exhibition)', '/press': '언론(Press)', '/resources': '아카이브(Resources)',
 };
+// 동적 경로 세그먼트 → 한글 (press/resources 카테고리, 전시 상태)
+const PRESS_CAT: Record<string, string> = { articles: '기사', broadcasts: '방송' };
+const RESOURCE_CAT: Record<string, string> = { making: '작업 과정', writings: '글' };
+const EXH_STATUS: Record<string, string> = { special: '특별전', current: '진행 중', past: '지난 전시' };
 // 오늘(KST) 기준 최근 n일 'YYYY-MM-DD' 배열(오래된→최신)
 function recentDays(n: number): string[] {
   const fmt = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
@@ -117,6 +121,15 @@ function RankList({
 export default function StatsPanel({ stats, loading, onRefresh, folders, artworks }: StatsPanelProps) {
   const [resetting, setResetting] = useState(false);
   const [range, setRange] = useState<RangeKey>('30');
+  // 통계 경로의 UUID → 제목 해석을 위해 언론/아카이브 목록을 가져온다(공개 GET).
+  const [pressItems, setPressItems] = useState<Array<{ id: string; title?: string; title_en?: string }>>([]);
+  const [resourceItems, setResourceItems] = useState<Array<{ id: string; title?: string; title_en?: string }>>([]);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/press').then((r) => (r.ok ? r.json() : [])).then((d) => { if (alive) setPressItems(Array.isArray(d) ? d : []); }).catch(() => {});
+    fetch('/api/resources').then((r) => (r.ok ? r.json() : [])).then((d) => { if (alive) setResourceItems(Array.isArray(d) ? d : []); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const handleReset = async () => {
     if (!confirm('운영 통계를 모두 초기화하시겠습니까? 되돌릴 수 없습니다.')) return;
@@ -131,6 +144,9 @@ export default function StatsPanel({ stats, loading, onRefresh, folders, artwork
 
   // '/works/{genreSlug}/{groupSlug}' → 한글 라벨 (작품에서 도출되는 모든 시리즈/주제 포함)
   const groupMap = useMemo(() => groupLabelBySlug(artworks || [], folders || []), [artworks, folders]);
+  // id → 제목(한글 우선) 맵
+  const pressMap = useMemo(() => Object.fromEntries(pressItems.map((p) => [p.id, (p.title || p.title_en || '').trim()])), [pressItems]);
+  const resourceMap = useMemo(() => Object.fromEntries(resourceItems.map((p) => [p.id, (p.title || p.title_en || '').trim()])), [resourceItems]);
 
   // 선택 기간의 날짜 키 집합
   const days = useMemo(() => {
@@ -177,21 +193,48 @@ export default function StatsPanel({ stats, loading, onRefresh, folders, artwork
   const trendDays = days.slice(-60);
   const maxDailyPv = Math.max(1, ...trendDays.map((d) => daily[d]?.pageviews ?? 0));
 
-  const seriesLabelFn = (key: string) => groupMap[key] || key;
   const countryLabelFn = countryName;
   const sourceLabelFn = (k: string) => SOURCE_NAMES[k] || k;
-  // 경로를 읽기 쉬운 한글로: /works/{genreSlug}/{groupSlug}[/sub] → 작품 › 장르 › 그룹
+  // 모든 공개 경로를 일관된 한글로 변환 — 원시 슬러그/UUID(예: drawings/s-re4cp,
+  // /press/broadcasts/<uuid>)가 통계에 노출되지 않도록 한다. 해석 불가 시 한글 폴백.
   const pathLabelFn = (path: string) => {
     const clean = (path || '').split('?')[0];
     if (PAGE_NAMES[clean]) return PAGE_NAMES[clean];
     const segs = clean.split('/').filter(Boolean);
-    if (segs[0] !== 'works' || segs.length < 2) return path;
-    const g = GENRE_OPTIONS.find((o) => o.slug === segs[1]);
-    const parts = ['작품', g ? g.ko : segs[1]];
-    if (segs[2]) parts.push(groupMap[`${segs[1]}/${segs[2]}`] || segs[2]);
-    if (segs[3]) parts.push(segs[3]);
-    return parts.join(' › ');
+    if (!segs.length) return '홈 (메인)';
+    switch (segs[0]) {
+      case 'works': {
+        if (segs.length < 2) return '작품(Works)';
+        const g = GENRE_OPTIONS.find((o) => o.slug === segs[1]);
+        const parts = ['작품', g ? g.ko : segs[1]];
+        // 연도(decade) 폴더는 슬러그(예: 2020s)가 그대로 읽히므로 그대로 표시
+        if (segs[2]) parts.push(/^\d{4}s$/.test(segs[2]) ? segs[2] : (groupMap[`${segs[1]}/${segs[2]}`] || '(삭제된 분류)'));
+        if (segs[3]) parts.push(groupMap[`${segs[1]}/${segs[2]}/${segs[3]}`] || '(하위)');
+        return parts.join(' › ');
+      }
+      case 'press': {
+        const parts = ['언론'];
+        if (segs[1]) parts.push(PRESS_CAT[segs[1]] || segs[1]);
+        if (segs[2]) parts.push(pressMap[segs[2]] || '(삭제된 항목)');
+        return parts.join(' › ');
+      }
+      case 'resources': {
+        const parts = ['아카이브'];
+        if (segs[1]) parts.push(RESOURCE_CAT[segs[1]] || segs[1]);
+        if (segs[2]) parts.push(resourceMap[segs[2]] || '(삭제된 항목)');
+        return parts.join(' › ');
+      }
+      case 'exhibition': {
+        const parts = ['전시'];
+        if (segs[1]) parts.push(EXH_STATUS[segs[1]] || segs[1]);
+        return parts.join(' › ');
+      }
+      default:
+        return path;
+    }
   };
+  // 시리즈/주제 패널도 페이지 경로와 동일한 한글 표기로 통일(genre/group → 작품 › 장르 › 그룹).
+  const seriesLabelFn = (key: string) => pathLabelFn(`/works/${key}`);
 
   // 일별 전체 CSV(현재 기간)
   const exportDailyCsv = () => {
